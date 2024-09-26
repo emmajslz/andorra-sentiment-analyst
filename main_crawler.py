@@ -13,19 +13,21 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 
+from crawler import utils, scraper
+
 class Input:
     
     def __init__(self):
 
         self.path_to_chromedriver_loc = 'crawler/path_to_chromedriver.txt'
         self.path_to_sources = 'data/sources.csv'
+        self.path_to_sources_out_of_order = 'crawler/sources_out_of_order.txt'
         self.path_to_search_terms = 'data/search_terms.csv'
 
         self.NOW = datetime.now()
         self.TODAY = date.today()
 
     def get_chromedriver_loc(self) -> str:
-
         return open(self.path_to_chromedriver_loc, 'r').readline().strip()
 
     def get_sources(self) -> list:
@@ -34,6 +36,13 @@ class Input:
         sources = [line.split(',')[0].strip() for line in lines if "yes" in line.split(',')[1]]
             
         return sources
+    
+    def get_sources_out_of_order(self) -> list:
+        
+        lines = open(self.path_to_sources_out_of_order, 'r').readlines()
+        sources_out_of_order = [line.strip() for line in lines]
+            
+        return sources_out_of_order
     
     def get_search_terms(self) -> list:
 
@@ -125,13 +134,22 @@ class Output:
 
 class Crawler:
     
-    def __init__(self, chromedriver_loc: str, sources: list, search_terms: list, date_init: datetime, date_end: datetime):
+    def __init__(self,
+                 chromedriver_loc: str,
+                 sources: list,
+                 sources_out_of_order: list,
+                 search_terms: list,
+                 date_init: datetime,
+                 date_end: datetime):
 
         self.chromedriver_loc = chromedriver_loc
         self.sources = sources
+        self.sources_out_of_order = sources_out_of_order
         self.search_terms = search_terms
         self.date_init = date_init
         self.date_end = date_end
+
+        self.scraper = scraper.Scraper(self)
 
     def setup_driver(self) -> webdriver:
         # -- We set up the webdriver for the eventual use of selenium --
@@ -157,10 +175,18 @@ class Crawler:
     
     def crawl(self) -> dict:
 
+        utils.prints('mode', date_init=self.date_init, date_end=self.date_end, search_terms=self.search_terms)
+
         self.driver = self.setup_driver()
 
-        #print(f"{self.chromedriver_loc}\n{self.sources}\n{self.search_terms}\n{self.date_init}\n{self.date_end}")
         results = {}
+
+        for journal in self.sources:
+            utils.prints('searching', journal=journal)
+            if journal in self.sources_out_of_order:
+                utils.prints('out_of_order', journal=journal)
+            else:
+                results.update(self.scraper.scrape(journal))
 
         self.shutdown_driver()
 
@@ -172,12 +198,13 @@ def main():
 
     chromedriver_loc = input.get_chromedriver_loc()
     sources = input.get_sources()
+    sources_out_of_order = input.get_sources_out_of_order()
     search_terms = input.get_search_terms()
     (date_init, date_end) = input.get_date_interval()
 
     output = Output()
 
-    crawler = Crawler(chromedriver_loc, sources, search_terms, date_init, date_end)
+    crawler = Crawler(chromedriver_loc, sources, sources_out_of_order, search_terms, date_init, date_end)
     results = crawler.crawl()
 
     #!!! eliminar
