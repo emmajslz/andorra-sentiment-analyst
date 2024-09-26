@@ -17,15 +17,15 @@ from crawler import utils, scraper
 
 class Input:
     
-    def __init__(self):
+    def __init__(self, today: date, now: datetime):
 
         self.path_to_chromedriver_loc = 'crawler/path_to_chromedriver.txt'
         self.path_to_sources = 'data/sources.csv'
         self.path_to_sources_out_of_order = 'crawler/sources_out_of_order.txt'
         self.path_to_search_terms = 'data/search_terms.csv'
 
-        self.NOW = datetime.now()
-        self.TODAY = date.today()
+        self.NOW = now
+        self.TODAY = today
 
     def get_chromedriver_loc(self) -> str:
         return open(self.path_to_chromedriver_loc, 'r').readline().strip()
@@ -140,7 +140,9 @@ class Crawler:
                  sources_out_of_order: list,
                  search_terms: list,
                  date_init: datetime,
-                 date_end: datetime):
+                 date_end: datetime,
+                 today: date,
+                 now: datetime):
 
         self.chromedriver_loc = chromedriver_loc
         self.sources = sources
@@ -148,6 +150,8 @@ class Crawler:
         self.search_terms = search_terms
         self.date_init = date_init
         self.date_end = date_end
+        self.TODAY = today
+        self.NOW = now
 
         self.scraper = scraper.Scraper(self)
 
@@ -186,6 +190,7 @@ class Crawler:
             if journal in self.sources_out_of_order:
                 utils.prints('out_of_order', journal=journal)
             else:
+                # Use the methods in Scraper to search the for the articles!!!
                 results.update(self.scraper.scrape(journal))
 
         self.shutdown_driver()
@@ -194,7 +199,10 @@ class Crawler:
 
 def main():
 
-    input = Input()
+    today = date.today()
+    now = datetime.now()
+
+    input = Input(today, now)
 
     chromedriver_loc = input.get_chromedriver_loc()
     sources = input.get_sources()
@@ -204,15 +212,13 @@ def main():
 
     output = Output()
 
-    crawler = Crawler(chromedriver_loc, sources, sources_out_of_order, search_terms, date_init, date_end)
+    crawler = Crawler(chromedriver_loc, sources, sources_out_of_order, search_terms, date_init, date_end, today, now)
     results = crawler.crawl()
-
-    #!!! eliminar
-    results = {'article1': output.headers}
 
     if results:
         output.store_results(results)
+    else:
+        utils.prints('no_results')
     
-
 if __name__ == "__main__":
     main()

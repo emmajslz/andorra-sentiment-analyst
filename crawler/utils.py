@@ -52,3 +52,40 @@ def prints(what,
     elif what == 'out_of_order':
         print(f":( Under maintenance. {names[journal]} is currently out of order.")
         print("--> Searching methods are currently being updated.")
+
+    elif what == 'no_results':
+        print("----------------------------------------------------------------------------------")
+        print(f"The search yielded no results.")
+
+def string_to_datetime(string: str, date_format: str, formatted: bool, multiple_formats: bool) -> datetime:
+    # We convert the string that we obtained from the web into a datetime object.
+
+    # If formatted == True, we can simply use strptime to go from string to datetime
+    if formatted:
+        # If there are multiple formats, we check each one until we get the correct one and can use strptime(..)
+        if multiple_formats:
+            for fmt in date_format:
+                try:
+                    return datetime.strptime(string, fmt)
+                except ValueError:
+                    pass
+        else:
+            return datetime.strptime(string, date_format)
+        
+def category_type(category: str) -> str:
+        # We define 'type', to classify the different articles depending on their category.
+        match category:
+            case 'opinio':
+                return "opinion"
+            case 'reportatge':
+                return "report"
+            case 'vinyetes' | "portada a portada":
+                return "image"
+            case 'video' | 'editorial':
+                return category
+            case 'entrevista' | "la_contra" | "la_perla":
+                return "interview"
+            case _:
+                return "article"
+
+
