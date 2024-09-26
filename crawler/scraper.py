@@ -210,6 +210,12 @@ class DynamicMethods:
         self.load_more_button = {'ara': 'button[class="ara-button secondary"]'}
         self.next_page = {'ara': 'div[class="page-container"]'}
 
+        # All articles locs
+        # We define the location of the articles for each journal as XPATHs
+        self.all_articles_locs = {"ara": '//article[@class="ara-card ara-card--article"]',
+                                  "diari": '//ul[@class="tir-f1 con resultadosBusquedaBS"]/li',
+                                  "ser": '//div[@class="queryly_item_row"]'}
+
     """ --- AUX METHODS -------------------------------"""
     def buttons(self, journal: str) -> None:
         # We click the cookies and notifications buttons in the event we just opened the webpage and there are cookies and
@@ -300,6 +306,21 @@ class DynamicMethods:
             self.crawler.driver.close()
             self.crawler.driver.switch_to.window(window_before)    
 
+    def all_articles_selenium(self, journal: str, next_page=None):
+        # We look for all the articles on the current page
+        # For dynamic webpages -> Selenium
+
+        # We wait until we can find the elements to begin
+        WebDriverWait(self.crawler.driver, 15).until(EC.presence_of_element_located((By.XPATH, self.all_articles_locs[journal])))
+
+        # If we are looking for articles after clicking on the "Show more" button, we can't search the whole page
+        # but only the articles that are new
+        if next_page is None:
+            return self.crawler.driver.find_elements(By.XPATH, self.all_articles_locs[journal])
+        else:
+            return next_page.find_elements(By.XPATH, '.' + self.all_articles_locs[journal])
+        
+
     """ --- SCRAPERS ----------------------------------"""
     def scrape_single_page(self,
                            journal: str,
@@ -351,6 +372,81 @@ class DynamicMethods:
                 print("\n")
         
         return dict_articles
+
+    def scrape_load_more_page(self,
+                              journal: str,
+                              url: str,
+                              date_init: datetime,
+                              date_end: datetime,
+                              already_saved=None,
+                              term=None):
+        # Structure to crawl: Load more page
+        # Type of webpage: Dynamic (We use Selenium)
+        # All the articles are on a single page. There is a "Show more" button at the end which will show more articles
+        # each time we press it. We use a loop that gets all the current articles, and presses the button to get more
+        # articles until we are outside the interval
+
+        load_more_button_loc = self.load_more_button[journal]
+        next_page_loc = self.next_page[journal]
+
+        dict_articles = {}
+
+        try:
+            # We use selenium to load the page
+            self.open_url(journal, url)
+
+            articles = self.all_articles_selenium(journal)
+
+            date_article = self.crawler.NOW
+            more_articles = True
+
+            i = 0
+            # We use a loop that will get the current articles, click the "Show more" button, get the next list of articles...
+            while date_init <= date_article and more_articles:
+                j = 0
+                while date_article >= date_init and j < len(articles):
+                    article = articles[j]
+                    link = self.parser.get_link(journal, article)
+                    soup = self.get_soup(journal, link)
+                    date_article = self.parser.get_datetime(journal, article, soup)
+                    if date_init <= date_article <= date_end:
+                        dict_articles = self.add_article.add_article_to_dict(journal, article, date_article, link, soup,
+                                                                 dict_articles, date_end, already_saved, term)
+                    j += 1
+
+                # Each time we press the button, the new articles are inside the tag located in next_page_loc.
+                # If the number of tags next_page_loc is smaller than i + 1, we press the button to get more articles
+                while len(self.crawler.driver.find_elements(By.CSS_SELECTOR, next_page_loc)) < i + 1 and more_articles:
+                    try:
+                        # We wait for the button to be available
+                        load_more_button = WebDriverWait(self.crawler.driver, 15).until(
+                            EC.presence_of_element_located((By.CSS_SELECTOR, load_more_button_loc)))
+                    except TimeoutException:
+                        # If we couldn't find the button, it means there are no more articles in the page.
+                        more_articles = False
+
+                    if more_articles:
+                        # If there are more articles to look for, we press the button.
+                        self.crawler.driver.execute_script("arguments[0].click();", load_more_button)
+
+                if more_articles:
+                    # We wait until the location of the new list of articles is loaded
+                    WebDriverWait(self.crawler.driver, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR,
+                                                                                                 next_page_loc)))
+                    # We get the next list of articles from the current next_page_log tag.
+                    articles = self.all_articles_selenium(journal,
+                                                          self.crawler.driver.find_elements(By.CSS_SELECTOR,
+                                                                                            next_page_loc)[i])
+                    i += 1
+
+        except Exception as e:
+            print(f"\n--> There was an error crawling in journal {journal}")
+            print(f"ERROR MESSAGE:\n{e}")
+            traceback.print_exc()
+            print("\n")
+
+        return dict_articles
+
 
 
 class StaticMethods:
@@ -568,7 +664,12 @@ class Scraper:
                                                                         term))
                 case 'ara':
                     # load_more_page
-                    result.update({})
+                    result.update(dynamic_methods.scrape_load_more_page(journal,
+                                                                        url,
+                                                                        self.crawler.date_init,
+                                                                        self.crawler.date_end,
+                                                                        already_saved,
+                                                                        term))
                 case 'diari' | 'ser':
                     # next_page
                     result.update({})
