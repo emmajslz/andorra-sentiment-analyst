@@ -22,9 +22,13 @@ class AddArticle:
     def __init__(self, crawler_instance, parser_instance, dynamic_methods_instance=None):
         self.crawler = crawler_instance
         self.parser = parser_instance
+
         if dynamic_methods_instance:
             self.dynamic_methods = dynamic_methods_instance
-            self.comments = Comments(self.crawler, self.parser, self.dynamic_methods)
+        else:
+            self.dynamic_methods = DynamicMethods(self.crawler)
+
+        self.comments = Comments(self.crawler, self.parser, self.dynamic_methods)
     
     def add_article_to_dict(self,
                             journal: str,
@@ -79,7 +83,6 @@ class AddArticle:
                                                              title, link, subtitle, content,
                                                              comment[0], comment[1], comment[2], comment[3],
                                                              comment[4], comment[5], comment[6], comment[7]]
-                utils.prints('comments_nous', date_comment=comment[3], id=id)
 
         return dict_articles
 
@@ -203,6 +206,10 @@ class DynamicMethods:
                         'periodic': '//button[@class="align-right secondary slidedown-button"]',
                         'dairi': '//div[@class="cancel-notification"]'}
     
+        # Load more button locations
+        self.load_more_button = {'ara': 'button[class="ara-button secondary"]'}
+        self.next_page = {'ara': 'div[class="page-container"]'}
+
     """ --- AUX METHODS -------------------------------"""
     def buttons(self, journal: str) -> None:
         # We click the cookies and notifications buttons in the event we just opened the webpage and there are cookies and
@@ -258,17 +265,23 @@ class DynamicMethods:
 
     def open_url(self, journal: str, url: str) -> None:
 
-        self.crawler.driver.get(url)
+        try:
+            self.crawler.driver.get(url)
+        except:
+            print(f"Cannot access {url} right now. Please try again later.")
+            return False
+        
         self.buttons(journal)
         self.opening_url_actions(journal)
+        return True
 
     def get_soup(self, journal: str, url: str) -> BeautifulSoup:
         
-        self.open_url(journal, url)
-
-        soup = BeautifulSoup(self.crawler.driver.page_source, 'html.parser')
-
-        return soup
+        if self.open_url(journal, url):
+            soup = BeautifulSoup(self.crawler.driver.page_source, 'html.parser')
+            return soup
+        else:
+            return None
     
     def url_in_second_window(self, mode: str, url=None) -> None:
         # If we need to, we open a second window on the WebDriver (to be able to keep the information on the current window)
@@ -287,7 +300,6 @@ class DynamicMethods:
             self.crawler.driver.close()
             self.crawler.driver.switch_to.window(window_before)    
 
-
     """ --- SCRAPERS ----------------------------------"""
     def scrape_single_page(self,
                            journal: str,
@@ -303,33 +315,109 @@ class DynamicMethods:
 
         dict_articles = {}
 
+        soup = self.get_soup(journal, url)
+
+        if soup:
+            try:
+
+                articles = self.parser.all_articles(journal, soup)
+                len_articles = len(articles)
+
+                date_article = self.crawler.NOW
+
+                # We loop through the article list to keep only the articles in the interval [date_init, date_end]
+                i = 0
+                while date_init <= date_article and i < len_articles:
+                    article = articles[i]
+
+                    # We get the artcle's link to turn into a soup object.
+                    # We'll use soup to get the attributes and content we need from inside the article
+                    link = self.parser.get_link(journal, article)
+                    soup = self.get_soup(journal, link)
+
+                    # We get the article's datetime to check if we are inside the interval
+                    date_article = self.parser.get_datetime(journal, article, soup)
+
+                    # If the atricle is in the desired interval, we use add_article_to_dict(...) to add it to the dictionary
+                    if date_init <= date_article <= date_end:
+                        dict_articles = self.add_article.add_article_to_dict(journal,article, date_article, link, soup,
+                                                                            dict_articles, date_end, already_saved, term)
+                    i += 1
+            
+            except Exception as e:
+                print(f"\n--> There was an error crawling in journal {journal}")
+                print(f"ERROR MESSAGE:\n{e}")
+                traceback.print_exc()
+                print("\n")
+        
+        return dict_articles
+
+
+class StaticMethods:
+
+    def __init__(self, crawler_instance):
+
+        self.crawler = crawler_instance
+
+        self.parser = parser.Parser()
+        self.add_article = AddArticle(self.crawler, self.parser)
+
+        self.next_page = {'altaveu': "&_page=",
+                          'bondia': "&page=",
+                          'forum': "/page/"}
+
+    """ --- AUX METHODS -------------------------------"""
+    def get_soup(self, url: str) -> BeautifulSoup:
+
         try:
+            response = requests.get(url)
+        except:
+            print(f"Cannot access {url} right now. Please try again later.")
+            return False
 
-            soup = self.get_soup(journal, url)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        return soup
+    
+    """ --- SCRAPERS ----------------------------------"""
+    def scrape_numbered_pages(self,
+                              journal: str,
+                              url: str,
+                              date_init: datetime,
+                              date_end: datetime,
+                              already_saved=None,
+                              term=None) -> dict:
+        # Structure to crawl: Numbered pages
+        # Type of webpage: Static (We use beautifulsoup)
+        # The page is divided in numbered pages (page 1, page 2, etc.)
+        # We loop through the different numbered pages, to get all the articles in each
+        # We add every article (list of attributes) that is inside the desired interval to the dictionary
 
-            articles = self.parser.all_articles(journal, soup)
-            len_articles = len(articles)
+        dict_articles = {}
 
-            date_article = self.crawler.NOW
+        try:
+            current_page = 1
 
-            # We loop through the article list to keep only the articles in the interval [date_init, date_end]
-            i = 0
-            while date_init <= date_article and i < len_articles:
-                article = articles[i]
+            # We use the function crawl_current_page to obtain the articles from the First page
+            (articles_current_page, date_in_interval, successful_access) = self.scrape_current_page(journal,
+                                                                                                    url,
+                                                                                                    date_init,
+                                                                                                    date_end,
+                                                                                                    already_saved)
+            dict_articles.update(articles_current_page)
 
-                # We get the artcle's link to turn into a soup object.
-                # We'll use soup to get the attributes and content we need from inside the article
-                link = self.parser.get_link(journal, article)
-                soup = self.get_soup(journal, link)
-
-                # We get the article's datetime to check if we are inside the interval
-                date_article = self.parser.get_datetime(journal, article, soup)
-
-                # If the atricle is in the desired interval, we use add_article_to_dict(...) to add it to the dictionary
-                if date_init <= date_article <= date_end:
-                    dict_articles = self.add_article.add_article_to_dict(journal,article, date_article, link, soup,
-                                                                         dict_articles, date_end, already_saved, term)
-                i += 1
+            # We loop through the different numbered pages, until the articles are outside the date interval
+            while date_in_interval and successful_access:
+                current_page += 1
+                # We define the next url (next numbered page) thanks to the function numbered_page_url
+                next_url = utils.numbered_page_url(journal, url, self.next_page[journal], current_page)
+                # We get all the new articles from the new numbered page.
+                (articles_current_page, date_in_interval, successful_access) = self.scrape_current_page(journal,
+                                                                                                        next_url,
+                                                                                                        date_init,
+                                                                                                        date_end,
+                                                                                                        already_saved,
+                                                                                                        term=term)
+                dict_articles.update(articles_current_page)
         
         except Exception as e:
             print(f"\n--> There was an error crawling in journal {journal}")
@@ -337,21 +425,57 @@ class DynamicMethods:
             traceback.print_exc()
             print("\n")
         
-        return dict_articles      
+        return dict_articles
+         
+    def scrape_current_page(self, journal: str, url: str, date_init: datetime, date_end: datetime, already_saved=None, term=None):
+        # Function used inside scrape_numbered_pages(...)
+        # For each numbered page, we'll return a dictionary with all the articles inside the interval
+        # We return the variable date_in_interval. If it's False, the loop in scrape_numbered_pages(...) will stop.
 
-class StaticMethods:
+        dict_articles = {}
+        date_in_interval = True
+        successful_access = True
 
-    def __init__(self):
-        return None
-    
-    """ --- AUX METHODS -------------------------------"""
-    def get_soup(self, url: str) -> BeautifulSoup:
-        response = requests.get(url)
-        soup = BeautifulSoup(response.text, 'html.parser')
-        return soup
-    
-    """ --- SCRAPERS ----------------------------------"""
-    
+        soup = self.get_soup(url)
+        
+        if soup:
+            try:
+
+                articles = self.parser.all_articles(journal, soup)
+                len_articles = len(articles)
+
+                if len_articles == 0:
+                    return {}, False, successful_access
+
+                date_article = self.crawler.NOW
+
+                i = 0
+                # Same method as scrape_single_page, except in the event we exit the date interval, we'll return a variable
+                # date_in_interval = False so the loop in scrape_numbered_pages can stop.
+                while date_init <= date_article and i < len_articles and date_in_interval:
+                    article = articles[i]
+                    link = self.parser.get_link(journal, article)
+                    soup = self.get_soup(link)
+                    date_article = self.parser.get_datetime(journal, article, soup)
+                    if date_article <= date_end:
+                        if date_init <= date_article:
+                            dict_articles = self.add_article.add_article_to_dict(journal, article, date_article, link, soup,
+                                                                    dict_articles, date_end, already_saved, term)
+                        else:
+                            date_in_interval = False
+                    i += 1
+                
+            except Exception as e:
+                print(f"\n--> There was an error crawling in journal {journal}")
+                print(f"ERROR MESSAGE:\n{e}")
+                traceback.print_exc()
+                print("\n")
+                date_in_interval = False
+        else:
+            successful_access = False
+        
+        return (dict_articles, date_in_interval, successful_access)
+     
 class Scraper:
 
     def __init__(self, crawler_instance):
@@ -361,7 +485,7 @@ class Scraper:
         #   search_terms: list
         #   date_init:    datetime
         #   date_end:     datetime
-
+        
     def word_to_url(self, journal: str, term: str) -> str:
         # Depending on the word we're looking for, we return an url that goes directly to the search results of that word
 
@@ -417,36 +541,35 @@ class Scraper:
         self.crawler.cookies_clicked = False
         self.crawler.notifs_clicked = False
 
+        dynamic_methods = DynamicMethods(self.crawler)
+        static_methods = StaticMethods(self.crawler)
+
         for term in self.crawler.search_terms:
             utils.prints('term', term=term)
             already_saved = result
             url = self.word_to_url(journal, term)
 
             match journal:
-                case 'altaveu':
+                case 'altaveu' | 'bondia' | 'forum':
                     # numbered_pages
-                    result.update({})
+                    result.update(static_methods.scrape_numbered_pages(journal,
+                                                                        url,
+                                                                        self.crawler.date_init,
+                                                                        self.crawler.date_end,
+                                                                        already_saved,
+                                                                        term))
                 case 'periodic':
                     # single_page 
-                    result.update(DynamicMethods(self.crawler).scrape_single_page(journal,
-                                                                                    url,
-                                                                                    self.crawler.date_init,
-                                                                                    self.crawler.date_end,
-                                                                                    already_saved,
-                                                                                    term))
+                    result.update(dynamic_methods.scrape_single_page(journal,
+                                                                        url,
+                                                                        self.crawler.date_init,
+                                                                        self.crawler.date_end,
+                                                                        already_saved,
+                                                                        term))
                 case 'ara':
-                    # load_more_pages
+                    # load_more_page
                     result.update({})
-                case 'bondia':
-                    # numbered_pages
-                    result.update({})
-                case 'diari':
-                    # next_page
-                    result.update({})
-                case 'forum':
-                    # numbered_pages
-                    result.update({})
-                case 'ser':
+                case 'diari' | 'ser':
                     # next_page
                     result.update({})
 

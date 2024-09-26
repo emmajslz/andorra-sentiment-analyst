@@ -88,4 +88,12 @@ def category_type(category: str) -> str:
             case _:
                 return "article"
 
+def numbered_page_url(journal: str, url: str, add_on: str, current_page: int) -> str:
+    # In numbered pages, we return a string with the next url to look for (next numbered page)
+    # Generally, this means a similar url with an added string at the end and the page's number.
+    if journal == "altaveu" or journal == "bondia":
+        return url + add_on + str(current_page)
+    elif journal == "forum":
+        return url[:16] + add_on + str(current_page) + url[16:]
+
 
