@@ -281,13 +281,16 @@ class DynamicMethods:
         self.opening_url_actions(journal)
         return True
 
-    def get_soup(self, journal: str, url: str) -> BeautifulSoup:
+    def get_soup(self, journal: str, url: str = None) -> BeautifulSoup:
         
-        if self.open_url(journal, url):
-            soup = BeautifulSoup(self.crawler.driver.page_source, 'html.parser')
-            return soup
+        if url:
+            if self.open_url(journal, url):
+                soup = BeautifulSoup(self.crawler.driver.page_source, 'html.parser')
+                return soup
+            else:
+                return None
         else:
-            return None
+            return BeautifulSoup(self.crawler.driver.page_source, 'html.parser')
     
     def url_in_second_window(self, mode: str, url=None) -> None:
         # If we need to, we open a second window on the WebDriver (to be able to keep the information on the current window)
@@ -412,6 +415,7 @@ class DynamicMethods:
 
                 # Each time we press the button, the new articles are inside the tag located in next_page_loc.
                 # If the number of tags next_page_loc is smaller than i + 1, we press the button to get more articles
+                self.open_url(journal, url)
                 while len(self.crawler.driver.find_elements(By.CSS_SELECTOR, next_page_loc)) < i + 1 and more_articles:
                     try:
                         # We wait for the button to be available
@@ -430,9 +434,8 @@ class DynamicMethods:
                     WebDriverWait(self.crawler.driver, 15).until(EC.presence_of_element_located((By.CSS_SELECTOR,
                                                                                                  next_page_loc)))
                     # We get the next list of articles from the current next_page_log tag.
-                    articles = self.all_articles_selenium(journal,
-                                                          self.crawler.driver.find_elements(By.CSS_SELECTOR,
-                                                                                            next_page_loc)[i])
+                    soup = self.get_soup(journal)
+                    articles = self.parser.next_all_articles(journal, soup, i)
                     i += 1
 
         except Exception as e:

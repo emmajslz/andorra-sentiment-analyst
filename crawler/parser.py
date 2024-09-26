@@ -34,6 +34,17 @@ class Parser:
                 
         return soup.find_all(locs[journal][0], class_=locs[journal][1])
     
+    def next_all_articles(self, journal: str, soup: BeautifulSoup, i) -> list:
+
+        match journal:
+            case 'ara':
+                next_pages = soup.find('div', class_="next-page").find_all('div', class_="page-container")[i]
+                return self.all_articles(journal, next_pages)
+
+
+
+
+
     def get_datetime(self, journal: str, article, soup: BeautifulSoup) -> datetime:
         # We look for the article's datetime (current element on the list)
 
