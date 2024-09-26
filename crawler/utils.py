@@ -10,7 +10,8 @@ def prints(what,
            new_article=False,
            date_init=None,
            date_end=None,
-           search_terms=None):
+           search_terms=None,
+           url=None):
     
     '''
     Function to print status updates to the standard output.
@@ -42,9 +43,9 @@ def prints(what,
     elif what == 'comments':
         if new_article:
             if len_comments == 1:
-                print(len_comments, "comment")
+                print(f"       -{len_comments} comment")
             elif len_comments > 1:
-                print(len_comments, "comments")
+                print(f"       -> {len_comments} comments")
 
     elif what == 'article':
         print("    -", date_article, "->", title)
@@ -56,6 +57,9 @@ def prints(what,
     elif what == 'no_results':
         print("----------------------------------------------------------------------------------")
         print(f"The search yielded no results.")
+
+    elif what == 'url':
+        print(f"URL: {url} ...")
 
 def string_to_datetime(string: str, date_format: str, formatted: bool, multiple_formats: bool) -> datetime:
     # We convert the string that we obtained from the web into a datetime object.

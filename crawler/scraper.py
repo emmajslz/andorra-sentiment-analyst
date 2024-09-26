@@ -320,7 +320,6 @@ class DynamicMethods:
         else:
             return next_page.find_elements(By.XPATH, '.' + self.all_articles_locs[journal])
         
-
     """ --- SCRAPERS ----------------------------------"""
     def scrape_single_page(self,
                            journal: str,
@@ -374,12 +373,12 @@ class DynamicMethods:
         return dict_articles
 
     def scrape_load_more_page(self,
-                              journal: str,
-                              url: str,
-                              date_init: datetime,
-                              date_end: datetime,
-                              already_saved=None,
-                              term=None):
+                                journal: str,
+                                url: str,
+                                date_init: datetime,
+                                date_end: datetime,
+                                already_saved=None,
+                                term=None):
         # Structure to crawl: Load more page
         # Type of webpage: Dynamic (We use Selenium)
         # All the articles are on a single page. There is a "Show more" button at the end which will show more articles
@@ -392,11 +391,8 @@ class DynamicMethods:
         dict_articles = {}
 
         try:
-            # We use selenium to load the page
-            self.open_url(journal, url)
-
-            articles = self.all_articles_selenium(journal)
-
+            soup = self.get_soup(journal, url)
+            articles = self.parser.all_articles(journal, soup)
             date_article = self.crawler.NOW
             more_articles = True
 
@@ -411,7 +407,7 @@ class DynamicMethods:
                     date_article = self.parser.get_datetime(journal, article, soup)
                     if date_init <= date_article <= date_end:
                         dict_articles = self.add_article.add_article_to_dict(journal, article, date_article, link, soup,
-                                                                 dict_articles, date_end, already_saved, term)
+                                                                            dict_articles, date_end, already_saved, term)
                     j += 1
 
                 # Each time we press the button, the new articles are inside the tag located in next_page_loc.
@@ -446,9 +442,7 @@ class DynamicMethods:
             print("\n")
 
         return dict_articles
-
-
-
+        
 class StaticMethods:
 
     def __init__(self, crawler_instance):
@@ -594,26 +588,25 @@ class Scraper:
         urls = {'altaveu': "https://www.altaveu.com/cercador.html?search=",
                 'periodic': "https://www.elperiodic.ad/cerca?que=",
                 'ara': "https://www.ara.ad/cercador?text=",
-                'bondia': "https://www.bondia.ad/cercador?text_de_cerca=",
+                'bondia': "https://www.bondia.ad/cercador?search=",
                 'diari': "https://www.diariandorra.ad/search/?query=",
                 'forum': "https://forum.ad/?s=",
                 'ser': "https://cadenaser.com/buscar/?query="}
         
         match journal:
-            case 'altaveu' | 'ser' | 'diari':
+            case 'altaveu' | 'ser' | 'diari' | 'bondia':
                 url = urls[journal] + words[0]
                 i = 1
                 while i < word_count:
                     url = url + '+' + words[i]
                     i += 1
             case 'periodic':
-                url = urls[journal] + '"' + words[0]
+                url = urls[journal] + words[0]
                 i = 1
                 while i < word_count:
                     url = url + "%20" + words[i]
                     i += 1
-                url = url + '"'
-            case 'ara' | 'bondia':
+            case 'ara':
                 url = urls[journal] + '"' + words[0]
                 i = 1
                 while i < word_count:
@@ -644,7 +637,7 @@ class Scraper:
             utils.prints('term', term=term)
             already_saved = result
             url = self.word_to_url(journal, term)
-
+            utils.prints('url', url=url)
             match journal:
                 case 'altaveu' | 'bondia' | 'forum':
                     # numbered_pages

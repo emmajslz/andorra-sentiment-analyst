@@ -28,7 +28,8 @@ class Parser:
             'altaveu': ('div', "c-news-list__wrapper"),
             'periodic': ('li', re.compile("item article article_llistat.*")),
             'bondia': ('div', re.compile("^views-row views-row-.+ views-row-(even|odd)( views-row-(first|last))?$")),
-            'forum': ('article', re.compile("^entry author-.* post-.*"))
+            'forum': ('article', re.compile("^entry author-.* post-.*")),
+            'ara': ('article', "ara-card ara-card--article")
         }
                 
         return soup.find_all(locs[journal][0], class_=locs[journal][1])
@@ -85,7 +86,8 @@ class Parser:
             case 'periodic':
                 return article.a['href']
             case 'ara':
-                return article.find_element(By.XPATH, './/div/h2/a').get_attribute("href")
+                #return article.find_element(By.XPATH, './/div/h2/a').get_attribute("href")
+                return article.a['href']
             case 'bondia':
                 return "https://www.bondia.ad" + article.div.span.strong.a['href']
             case 'diari':
@@ -104,7 +106,8 @@ class Parser:
             case 'periodic':
                 return article.a.div.h2.string
             case 'ara':
-                return article.find_element(By.XPATH, './/div/h2/a').get_attribute("title")
+                #return article.find_element(By.XPATH, './/div/h2/a').get_attribute("title")
+                return article.a['title']
             case 'bondia':
                 return article.find('div', class_="views-field views-field-title").span.strong.a.span.string
             case 'diari':
@@ -133,7 +136,7 @@ class Parser:
                 else:
                     category = category[3][8:]
             case 'ara':
-                category = article.find_element(By.XPATH, ".//div/div/a").get_attribute("textContent")
+                category = article.div.div.a.text
             case 'bondia':
                 category = self.get_category_in_article("bondia", soup)[10:]
             case 'diari':
