@@ -628,7 +628,7 @@ class Bondia:
             while date_in_interval and successful_access:
                 current_page += 1
                 # We define the next url (next numbered page) thanks to the function numbered_page_url
-                next_url = utils.numbered_page_url(journal, url, self.next_page[journal], current_page)
+                next_url = utils.numbered_page_url(journal, url, self.next_page, current_page)
                 # We get all the new articles from the new numbered page.
                 (articles_current_page, date_in_interval, successful_access) = self.numbered_pages_current_page(journal,
                                                                                                             next_url,
@@ -661,7 +661,7 @@ class Bondia:
         date_in_interval = True
         successful_access = True
 
-        soup = self.get_soup(url)
+        soup = self.static_methods.get_soup(url)
         
         if soup:
             try:
@@ -680,7 +680,7 @@ class Bondia:
                 while date_init <= date_article and i < len_articles and date_in_interval:
                     article = articles[i]
                     link = self.parser.get_link(journal, article)
-                    soup = self.get_soup(link)
+                    soup = self.static_methods.get_soup(link)
                     date_article = self.parser.get_datetime(journal, article, soup)
                     if date_article <= date_end:
                         if date_init <= date_article:
