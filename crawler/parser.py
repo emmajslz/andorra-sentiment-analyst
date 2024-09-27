@@ -29,7 +29,8 @@ class Parser:
             'periodic': ('li', re.compile("item article article_llistat.*")),
             'bondia': ('div', "flex flex-col gap-1"),
             'forum': ('article', re.compile("^entry author-.* post-.*")),
-            'ara': ('article', "ara-card ara-card--article")
+            'ara': ('article', "ara-card ara-card--article"),
+            'diari': ('article', "c-article c-article--lateral size-12")
         }
 
         if journal == 'bondia':
@@ -55,7 +56,7 @@ class Parser:
                         'periodic': "%d.%m.%Y - %H:%M h",
                         'ara': "%Y-%m-%dT%H:%M:%S",
                         'bondia': "%Y-%m-%d %H:%M:%S",
-                        'diari': "%Y-%m-%d %H:%M:%S",
+                        'diari': "%d.%m.%Y | %H:%M",
                         'forum': ["%d/%m/%y %H:%M", "%d/%m/%Y %H:%M"],
                         'ser': "%d/%m/%Y - %H:%M h CUT"}
 
@@ -69,7 +70,6 @@ class Parser:
         match journal:
             case 'altaveu':
                 date_string = self.get_datetime_in_article(journal, soup)
-                #date_string = article.find('time', class_="c-news-list__time").text
             case 'periodic':
                 date_string = article.a.div.time.string
             case 'ara':
@@ -77,7 +77,7 @@ class Parser:
             case 'bondia':
                 date_string = article.find('div', class_="flex flex-row gap-2 italic text-sm").span.text
             case 'diari':
-                date_string = self.get_datetime_in_article(journal, soup)
+                date_string = article.find('time', class_="c-article__date").text.strip()
             case 'forum':
                 date_string = article.div.div.time.string
                 multiple_formats = True
@@ -100,7 +100,7 @@ class Parser:
             case 'bondia':
                 return article.find('a')['href'].strip()
             case 'diari':
-                return article.find_element(By.XPATH, './/h2/a').get_attribute('href')
+                return article.find('h2', class_="c-article__title").a['href']
             case 'forum':
                 return article.div.div.header.h2.a['href']
             case 'ser':
@@ -119,7 +119,7 @@ class Parser:
             case 'bondia':
                 return article.find('a').text.strip()
             case 'diari':
-                return article.find_element(By.XPATH, './/h2/a').get_attribute("textContent")
+                return article.find('h2', class_="c-article__title").a.text.strip()
             case 'forum':
                 return article.div.div.header.h2.a.string
             case 'ser':
@@ -148,7 +148,7 @@ class Parser:
             case 'bondia':
                 category = article.div.div.div.text
             case 'diari':
-                category = (article.find_element(By.XPATH, './/h2/a').get_attribute('href')).split('/')[4]
+                category = article.find('h2', class_="c-article__title").a['href'].split('/')[3]
             case 'forum':
                 # The 8th element on the list is the category.
                 if len(article['class']) > 8:
