@@ -38,8 +38,8 @@ class AddArticle:
                             soup: BeautifulSoup,
                             dict_articles: dict,
                             date_end: datetime,
-                            already_saved=None,
-                            term=None) -> dict:
+                            already_saved: bool = None,
+                            term: str = None) -> dict:
         # For each article, we use this function to determine wether or not it should be added to the dictionary,
         # get all the attributes we want, all the comments in the article (if there are any) and append all of
         # the information to the dictionary.
@@ -53,20 +53,21 @@ class AddArticle:
             type_article = utils.category_type(category)
             
             # We construct the article id
-            id = journal + "-" + str(date_article) + "-" + title
+            id = f"{journal[:2].upper()}{date_article.strftime("%Y%m%d%H%M")}-{term}-article"
 
             # We check if the article isn't in already_saved.
             if (already_saved is None) or not (id in already_saved):
+                utils.prints('article', date_article=date_article, title=title)
 
                 # We get the content in the article
                 subtitle, content = self.parser.get_content(journal, soup)
+                self.crawler.output.store_article(id, title, subtitle, content)
 
-                utils.prints('article', date_article=date_article, title=title)
-
+                df_content = re.sub('\n', ' ', content)
                 # We add a line with all the comment information blank. If there are no comments, the article will only
                 # have this line, and if there are comments, we'll have a line that only defines the article.
                 dict_articles[id] = [self.crawler.NOW, journal, term, date_article, category, type_article,
-                                    title, link, subtitle, content,
+                                    title, link, subtitle, df_content,
                                     "", "", "", "", "", "", "", ""]
                 # We use new_article = True, when we print the comment information, we won't print the article as
                 # it's already added.
@@ -79,7 +80,7 @@ class AddArticle:
                 # We loop through the list (if it's not empty) and add a new element to the article for each comment,
                 # with the comment information at the end.
                 for comment in comments:
-                    dict_articles[id + "-" + str(comment[0])] = [self.crawler.NOW, journal, term, date_article,
+                    dict_articles[id[:-7] + str(comment[0])] = [self.crawler.NOW, journal, term, date_article,
                                                                 category, type_article,
                                                                 title, link, subtitle, content,
                                                                 comment[0], comment[1], comment[2], comment[3],
@@ -355,12 +356,12 @@ class Altaveu:
         self.next_page = self.crawler.sources_elements.loc['altaveu', 'next_page']
 
     def numbered_pages(self,
-                              journal: str,
-                              url: str,
-                              date_init: datetime,
-                              date_end: datetime,
-                              already_saved=None,
-                              term=None) -> dict:
+                        journal: str,
+                        url: str,
+                        date_init: datetime,
+                        date_end: datetime,
+                        already_saved: bool,
+                        term: str) -> dict:
         # Structure to crawl: Numbered pages
         # Type of webpage: Static (We use beautifulsoup)
         # The page is divided in numbered pages (page 1, page 2, etc.)
@@ -377,7 +378,8 @@ class Altaveu:
                                                                                                             url,
                                                                                                             date_init,
                                                                                                             date_end,
-                                                                                                            already_saved)
+                                                                                                            already_saved,
+                                                                                                            term)
             dict_articles.update(articles_current_page)
 
             # We loop through the different numbered pages, until the articles are outside the date interval
@@ -391,7 +393,7 @@ class Altaveu:
                                                                                                                 date_init,
                                                                                                                 date_end,
                                                                                                                 already_saved,
-                                                                                                                term=term)
+                                                                                                                term)
                 dict_articles.update(articles_current_page)
         
         except Exception as e:
@@ -407,8 +409,8 @@ class Altaveu:
                                     url: str,
                                     date_init: datetime,
                                     date_end: datetime,
-                                    already_saved=None,
-                                    term=None):
+                                    already_saved,
+                                    term):
         # Function used inside scrape_numbered_pages(...)
         # For each numbered page, we'll return a dictionary with all the articles inside the interval
         # We return the variable date_in_interval. If it's False, the loop in scrape_numbered_pages(...) will stop.
@@ -496,7 +498,8 @@ class Forum:
                                                                                                             url,
                                                                                                             date_init,
                                                                                                             date_end,
-                                                                                                            already_saved)
+                                                                                                            already_saved,
+                                                                                                            term)
             dict_articles.update(articles_current_page)
 
             # We loop through the different numbered pages, until the articles are outside the date interval
@@ -510,7 +513,7 @@ class Forum:
                                                                                                                 date_init,
                                                                                                                 date_end,
                                                                                                                 already_saved,
-                                                                                                                term=term)
+                                                                                                                term)
                 dict_articles.update(articles_current_page)
         
         except Exception as e:
@@ -526,8 +529,8 @@ class Forum:
                                     url: str,
                                     date_init: datetime,
                                     date_end: datetime,
-                                    already_saved=None,
-                                    term=None):
+                                    already_saved,
+                                    term):
         # Function used inside scrape_numbered_pages(...)
         # For each numbered page, we'll return a dictionary with all the articles inside the interval
         # We return the variable date_in_interval. If it's False, the loop in scrape_numbered_pages(...) will stop.
@@ -622,7 +625,8 @@ class Bondia:
                                                                                                             date_init,
                                                                                                             date_end,
                                                                                                             soup,
-                                                                                                            already_saved)
+                                                                                                            already_saved,
+                                                                                                            term)
             dict_articles.update(articles_current_page)
 
             # We loop through the different numbered pages, until the articles are outside the date interval
@@ -657,7 +661,7 @@ class Bondia:
                                                                                                                 date_end,
                                                                                                                 soup,
                                                                                                                 already_saved,
-                                                                                                                term=term)
+                                                                                                                term)
                     dict_articles.update(articles_current_page)
         
         except Exception as e:
@@ -673,8 +677,8 @@ class Bondia:
                                     date_init: datetime,
                                     date_end: datetime,
                                     soup: BeautifulSoup,
-                                    already_saved=None,
-                                    term=None):
+                                    already_saved,
+                                    term):
         # Function used inside scrape_numbered_pages(...)
         # For each numbered page, we'll return a dictionary with all the articles inside the interval
         # We return the variable date_in_interval. If it's False, the loop in scrape_numbered_pages(...) will stop.
@@ -910,7 +914,8 @@ class Diari:
                                                                                                             url,
                                                                                                             date_init,
                                                                                                             date_end,
-                                                                                                            already_saved)
+                                                                                                            already_saved,
+                                                                                                            term)
             dict_articles.update(articles_current_page)
 
             # We loop through the different numbered pages, until the articles are outside the date interval
@@ -924,7 +929,7 @@ class Diari:
                                                                                                                 date_init,
                                                                                                                 date_end,
                                                                                                                 already_saved,
-                                                                                                                term=term)
+                                                                                                                term)
                 dict_articles.update(articles_current_page)
         
         except Exception as e:

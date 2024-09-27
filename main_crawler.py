@@ -6,6 +6,8 @@ import time as tme
 import pandas as pd
 import numpy as np
 
+import csv
+
 from datetime import datetime, date, time
 from dateutil.relativedelta import relativedelta
 
@@ -90,25 +92,26 @@ class Output:
         self.path = 'data/scraping_results/'
         self.filepath = f"{self.path}{self.define_filename()}"
         self.headers = [
-            "Datetime added",
-            "Journal",
-            "Found by",
-            "Datetime",
-            "Category",
-            "Type",
-            "Title",
-            "Link",
-            "Subtitle",
-            "Content",
-            "Comment ID",
-            "Comment author",
-            "Comment datetime displayed",
-            "Comment datetime",
-            "Comment content",
-            "Comment in answer to",
-            "Comment likes",
-            "Comment dislikes"
+            "datetime_added",
+            "journal",
+            "search_term",
+            "datetime_article",
+            "category",
+            "type",
+            "title",
+            "link",
+            "subtitle",
+            "content",
+            "comment_id",
+            "comment_author",
+            "comment_datetime_displayed",
+            "comment_datetime",
+            "comment_content",
+            "comment_in_answer_to",
+            "comment_likes",
+            "comment_dislikes"
         ]
+        self.articles_path = 'data/scraping_results/articles/'
 
         self.check_filepath()
 
@@ -133,8 +136,18 @@ class Output:
 
         data_frame = pd.DataFrame.from_dict(results, orient="index", columns=self.headers)
 
-        data_frame.to_csv(f"{self.filepath}.csv")
-        data_frame.to_excel(f"{self.filepath}.xlsx")
+        data_frame.to_csv(f"{self.filepath}.csv", index_label="id", sep=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        data_frame.to_excel(f"{self.filepath}.xlsx", index_label="id")
+
+    def store_article(self, id: str, title: str, subtitle: str, content: str) -> None:
+
+        filepath = f"{self.articles_path}{id}.txt"
+
+        with open(filepath, 'w') as file:
+            file.write(title + "\n")
+            file.write(subtitle + "\n")
+            file.write(content)
+
 
 class Crawler:
     
@@ -147,7 +160,8 @@ class Crawler:
                  date_init: datetime,
                  date_end: datetime,
                  today: date,
-                 now: datetime):
+                 now: datetime,
+                 output_instance: Output):
 
         self.chromedriver_loc = chromedriver_loc
         self.sources = sources
@@ -158,6 +172,7 @@ class Crawler:
         self.date_end = date_end
         self.TODAY = today
         self.NOW = now
+        self.output = output_instance
 
         self.scraper = scraper.Scraper(self)
 
@@ -227,7 +242,8 @@ def main():
                       date_init,
                       date_end,
                       today,
-                      now)
+                      now,
+                      output)
     
     results = crawler.crawl()
 
