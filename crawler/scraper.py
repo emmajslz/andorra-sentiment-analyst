@@ -45,45 +45,45 @@ class AddArticle:
         # the information to the dictionary.
         # Because we look in different places, we use the already_saved argument. We pass the already existing dictionary
         # and only add the article to the current dictionary if it isn't already in already_saved.
-        
-        new_article = False
-        # We get all the attributes we don't already have
-        title = self.parser.get_title(journal, article)
-        category = self.parser.get_category(journal, article, soup)
-        type_article = utils.category_type(category)
-        
-        # We construct the article id
-        id = journal + "-" + str(date_article) + "-" + title
+        if soup:
+            new_article = False
+            # We get all the attributes we don't already have
+            title = self.parser.get_title(journal, article)
+            category = self.parser.get_category(journal, article, soup)
+            type_article = utils.category_type(category)
+            
+            # We construct the article id
+            id = journal + "-" + str(date_article) + "-" + title
 
-        # We check if the article isn't in already_saved.
-        if (already_saved is None) or not (id in already_saved):
+            # We check if the article isn't in already_saved.
+            if (already_saved is None) or not (id in already_saved):
 
-            # We get the content in the article
-            subtitle, content = self.parser.get_content(journal, soup)
+                # We get the content in the article
+                subtitle, content = self.parser.get_content(journal, soup)
 
-            utils.prints('article', date_article=date_article, title=title)
+                utils.prints('article', date_article=date_article, title=title)
 
-            # We add a line with all the comment information blank. If there are no comments, the article will only
-            # have this line, and if there are comments, we'll have a line that only defines the article.
-            dict_articles[id] = [self.crawler.NOW, journal, term, date_article, category, type_article,
-                                title, link, subtitle, content,
-                                "", "", "", "", "", "", "", ""]
-            # We use new_article = True, when we print the comment information, we won't print the article as
-            # it's already added.
-            new_article = True
+                # We add a line with all the comment information blank. If there are no comments, the article will only
+                # have this line, and if there are comments, we'll have a line that only defines the article.
+                dict_articles[id] = [self.crawler.NOW, journal, term, date_article, category, type_article,
+                                    title, link, subtitle, content,
+                                    "", "", "", "", "", "", "", ""]
+                # We use new_article = True, when we print the comment information, we won't print the article as
+                # it's already added.
+                new_article = True
 
-            # We get all the comments in the article with the get_comments(...) function. If there are none,
-            # get_comments(...) will return an empty list.
-            comments = self.comments.get_comments(journal, link, soup)
-            utils.prints('comments', len_comments=len(comments), date_article=date_article, new_article=new_article)
-            # We loop through the list (if it's not empty) and add a new element to the article for each comment,
-            # with the comment information at the end.
-            for comment in comments:
-                dict_articles[id + "-" + str(comment[0])] = [self.crawler.NOW, journal, term, date_article,
-                                                             category, type_article,
-                                                             title, link, subtitle, content,
-                                                             comment[0], comment[1], comment[2], comment[3],
-                                                             comment[4], comment[5], comment[6], comment[7]]
+                # We get all the comments in the article with the get_comments(...) function. If there are none,
+                # get_comments(...) will return an empty list.
+                comments = self.comments.get_comments(journal, link, soup)
+                utils.prints('comments', len_comments=len(comments), date_article=date_article, new_article=new_article)
+                # We loop through the list (if it's not empty) and add a new element to the article for each comment,
+                # with the comment information at the end.
+                for comment in comments:
+                    dict_articles[id + "-" + str(comment[0])] = [self.crawler.NOW, journal, term, date_article,
+                                                                category, type_article,
+                                                                title, link, subtitle, content,
+                                                                comment[0], comment[1], comment[2], comment[3],
+                                                                comment[4], comment[5], comment[6], comment[7]]
 
         return dict_articles
 
@@ -590,47 +590,75 @@ class Bondia:
         self.add_article = AddArticle(self.crawler, self.parser, self.dynamic_methods)
 
         # We define all the variables to store locations or paths that we'll need
-        self.next_page = self.crawler.sources_elements.loc['bondia', 'next_page']
+        self.load_next_page = self.crawler.sources_elements.loc['bondia', 'load_next_page']
 
+    def define_next_page_button(self, current_page: int) -> str:
+        return f'button[wire\\:click="gotoPage({current_page}, \\\'page\\\')"]'
+    
     def numbered_pages(self,
-                              journal: str,
-                              url: str,
-                              date_init: datetime,
-                              date_end: datetime,
-                              already_saved=None,
-                              term=None) -> dict:
+                        journal: str,
+                        url: str,
+                        date_init: datetime,
+                        date_end: datetime,
+                        already_saved=None,
+                        term=None) -> dict:
         # Structure to crawl: Numbered pages
         # Type of webpage: Static (We use beautifulsoup)
         # The page is divided in numbered pages (page 1, page 2, etc.)
         # We loop through the different numbered pages, to get all the articles in each
         # We add every article (list of attributes) that is inside the desired interval to the dictionary
-
+        utils.prints('url', url=url)
         dict_articles = {}
 
         try:
             current_page = 1
-
+            more_articles = True
+            print(f"CURRENT PAGE -> {current_page}")
             # We use the function crawl_current_page to obtain the articles from the First page
+            self.dynamic_methods.open_url(journal, url)
+            tme.sleep(15)
+            soup = self.dynamic_methods.get_soup(journal)
             (articles_current_page, date_in_interval, successful_access) = self.numbered_pages_current_page(journal,
-                                                                                                            url,
                                                                                                             date_init,
                                                                                                             date_end,
+                                                                                                            soup,
                                                                                                             already_saved)
             dict_articles.update(articles_current_page)
 
             # We loop through the different numbered pages, until the articles are outside the date interval
-            while date_in_interval and successful_access:
+            while date_in_interval and successful_access and more_articles:
                 current_page += 1
-                # We define the next url (next numbered page) thanks to the function numbered_page_url
-                next_url = utils.numbered_page_url(journal, url, self.next_page, current_page)
-                # We get all the new articles from the new numbered page.
-                (articles_current_page, date_in_interval, successful_access) = self.numbered_pages_current_page(journal,
-                                                                                                            next_url,
-                                                                                                            date_init,
-                                                                                                            date_end,
-                                                                                                            already_saved,
-                                                                                                            term=term)
-                dict_articles.update(articles_current_page)
+                print(f"CURRENT PAGE -> {current_page}")
+                try:
+                    # We wait for the button to be available
+                    next_page_button_loc = self.define_next_page_button(current_page)
+
+                    next_page_button_loc = WebDriverWait(self.crawler.driver, 15).until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, next_page_button_loc)))
+                except TimeoutException:
+                    # If we couldn't find the button, it means there are no more articles in the page.
+                    print(f"COULDN'T FIND THE BUTTON WITH CSS SELECTOR -> {next_page_button_loc}")
+                    more_articles = False
+
+                if more_articles:
+                    # If there are more articles to look for, we press the button.
+                    self.crawler.driver.execute_script("arguments[0].click();", next_page_button_loc)
+
+                    # We wait until the location of the new list of articles is loaded
+
+                    # We get the soup from the current html page
+                    # We wait for the next page to load or we will get the soup from the previous page.
+                    tme.sleep(15)
+                    soup = self.dynamic_methods.get_soup(journal)
+
+                    # We get all the new articles from the new numbered page.
+                    (articles_current_page, date_in_interval, successful_access) = self.numbered_pages_current_page(journal,
+                                                                                                                date_init,
+                                                                                                                date_end,
+                                                                                                                soup,
+                                                                                                                already_saved,
+                                                                                                                term=term)
+                    dict_articles.update(articles_current_page)
         
         except Exception as e:
             print(f"\n--> There was an error crawling in journal {journal}")
@@ -642,20 +670,18 @@ class Bondia:
     
     def numbered_pages_current_page(self,
                                     journal: str,
-                                    url: str,
                                     date_init: datetime,
                                     date_end: datetime,
+                                    soup: BeautifulSoup,
                                     already_saved=None,
                                     term=None):
         # Function used inside scrape_numbered_pages(...)
         # For each numbered page, we'll return a dictionary with all the articles inside the interval
         # We return the variable date_in_interval. If it's False, the loop in scrape_numbered_pages(...) will stop.
-        utils.prints('url', url=url)
+        
         dict_articles = {}
         date_in_interval = True
         successful_access = True
-
-        soup = self.static_methods.get_soup(url)
         
         if soup:
             try:
@@ -815,7 +841,7 @@ class Ara:
 
                 # Each time we press the button, the new articles are inside the tag located in next_page_loc.
                 # If the number of tags next_page_loc is smaller than i + 1, we press the button to get more articles
-                self.dynamic_methods.open_url(journal, url)
+                #self.dynamic_methods.open_url(journal, url)
                 while len(self.crawler.driver.find_elements(By.CSS_SELECTOR, self.load_next_page)) < i + 1 and more_articles:
                     try:
                         # We wait for the button to be available

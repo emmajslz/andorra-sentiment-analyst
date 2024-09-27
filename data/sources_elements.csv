@@ -1,8 +1,7 @@
 source;dynamic;static;structure;comments;next_page;cookies;notifs;load_more_button;load_next_page;all_articles
 altaveu;yes;yes;numbered pages;yes;&_page=;//*[contains(text(), "AGREE")];//button[@class="align-right secondary slidedown-button"];-;-;-
 forum;no;yes;numbered pages;no;/page/;-;-;-;-;-
-bondia;yes;no;dynamic numbered pages;no;&page=;-;-;-;-;-
+bondia;yes;no;dynamic numbered pages;no;&page=;-;-;in code;div[class="my-10 flex flex-col gap-10"];-
 periodic;yes;no;single page;no;-;-;//button[@class="align-right secondary slidedown-button"];-;-;-
 ara;yes;no;load more page;no;-;//button[@id="didomi-notice-agree-button"];-;button[class="ara-button secondary"];div[class="page-container"];//article[@class="ara-card ara-card--article"]
-diari;yes;no;next page;no;-;//button[@class="cky-btn cky-btn-accept"];//div[@class="cancel-notification"];-;a[title="Siguiente"];//ul[@class="tir-f1 con resultadosBusquedaBS"]/li
-ser;yes;no;next page;no;-;//button[@id="didomi-notice-agree-button"];-;-;a[class="next_btn"];//div[@class="queryly_item_row"]
+diari;no;no;numbered pages;yes;-;//button[@class="cky-btn cky-btn-accept"];//div[@class="cancel-notification"];-;a[title="Siguiente"];//ul[@class="tir-f1 con resultadosBusquedaBS"]/li
