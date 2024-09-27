@@ -171,16 +171,25 @@ class Parser:
         # only altaveu, periodic, and ara have subtitle
 
         # We define the location of the content in a dictionary, in the form:
-        # tags = {journal : [[loc_subtitle], [loc_title]]}
-        locs = {'altaveu': [['h2', 'class', "c-mainarticle__subtitle"],
+        # tags = {journal : [[loc_subtitle], [loc_content]]}
+
+        locs = {'altaveu':  [['h2', 'class', "c-mainarticle__subtitle"],
                             ['div', 'class', "c-mainarticle__body"]],
+
                 'periodic': [['h2', 'class', "noticia-header__subtitle"],
                             ['div', 'class', "noticia-main__content"]],
-                'ara': [['h2', 'class', "subtitle"],
-                        ['div', 'class', "ara-body"]],
-                'bondia': [[], ['div', 'property', re.compile(".*content:encoded")]],
-                'diari': [[], ['div', 'id', "txt"]],
-                'forum': [[], ['div', 'class', "entry-the-content"]]}
+
+                'ara':      [['h2', 'class', "subtitle"],
+                            ['div', 'class', "ara-body"]],
+
+                'bondia':   [[], ['div', 'property',
+                                re.compile(".*content:encoded")]],
+
+                'diari':    [[],
+                            ['div', 'class', "c-detail__body"]],
+
+                'forum':    [[],
+                            ['div', 'class', "entry-the-content"]]}
 
         subtitle = ""
         content = ""
@@ -197,6 +206,9 @@ class Parser:
             opening = soup.find('div', class_="c-mainarticle__opening").text
             content = opening + soup.find(locs[journal][1][0],
                                         attrs={locs[journal][1][1]: locs[journal][1][2]}).text.strip()
+        elif journal == "diari":
+            paragraphs = soup.find('div', class_="c-detail__body").find_all('p')
+            content = '\n'.join([par.text for par in paragraphs])
         elif soup.find(locs[journal][1][0], attrs={locs[journal][1][1]: locs[journal][1][2]}):
             content = soup.find(locs[journal][1][0], attrs={locs[journal][1][1]: locs[journal][1][2]}).text.strip()
 

@@ -4,4 +4,4 @@ forum;no;yes;numbered pages;no;/page/;-;-;-;-;-
 bondia;yes;no;dynamic numbered pages;no;&page=;-;-;in code;div[class="my-10 flex flex-col gap-10"];-
 periodic;yes;no;single page;no;-;-;//button[@class="align-right secondary slidedown-button"];-;-;-
 ara;yes;no;load more page;no;-;//button[@id="didomi-notice-agree-button"];-;button[class="ara-button secondary"];div[class="page-container"];//article[@class="ara-card ara-card--article"]
-diari;no;no;numbered pages;yes;-;//button[@class="cky-btn cky-btn-accept"];//div[@class="cancel-notification"];-;a[title="Siguiente"];//ul[@class="tir-f1 con resultadosBusquedaBS"]/li
+diari;yes;yes;numbered pages;yes;-;//a[@data-mrf-role="userAgreeToAll"];//div[@id="u_content_button_2"];-;a[title="Siguiente"];//ul[@class="tir-f1 con resultadosBusquedaBS"]/li

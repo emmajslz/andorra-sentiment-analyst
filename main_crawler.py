@@ -50,12 +50,13 @@ class Input:
     def get_sources_elements(self) -> pd.DataFrame:
         return pd.read_csv(self.path_to_sources_elements, delimiter=';').set_index('source')
     
-    def get_search_terms(self) -> list:
+    def get_search_terms(self):
 
         lines = open(self.path_to_search_terms, 'r').readlines()
-        search_terms = [line.strip() for line in lines]
+        search_name = lines[0].strip()
+        search_terms = [line.strip() for line in lines[1:]]
 
-        return search_terms
+        return search_name, search_terms
     
     def get_date_interval(self) -> tuple:
 
@@ -87,9 +88,10 @@ class Input:
 
 class Output:
 
-    def __init__(self):
+    def __init__(self, search_name):
 
         self.path = 'data/scraping_results/'
+        self.search_name = search_name
         self.filepath = f"{self.path}{self.define_filename()}"
         self.headers = [
             "datetime_added",
@@ -100,8 +102,6 @@ class Output:
             "type",
             "title",
             "link",
-            "subtitle",
-            "content",
             "comment_id",
             "comment_author",
             "comment_datetime_displayed",
@@ -116,13 +116,22 @@ class Output:
         self.check_filepath()
 
     def define_filename(self) -> str:
-        return f"{datetime.now().strftime('%Y%m%d')}_results"
+        return f"{datetime.now().strftime('%Y%m%d')}_{self.search_name}_results"
 
     def check_filepath(self) -> None:
 
         if not os.path.exists(self.path):
             print(f"Invalid path to store results in -> {self.path}")
             sys.exit(2)
+        else:
+            print(f"Storing results as -> {self.filepath}.csv")
+
+        if not os.path.exists(self.articles_path):
+            print(f"Invalid path to store articles in -> {self.articles_path}")
+            sys.exit(2)
+        else:
+            print(f"Storing articles in -> {self.articles_path}")
+
         if os.path.exists(f"{self.filepath}.csv"):
             print(f"File {self.filepath}.csv already exists.\nWould you like to override it? [y/n]")
             override = input()
@@ -137,6 +146,7 @@ class Output:
         data_frame = pd.DataFrame.from_dict(results, orient="index", columns=self.headers)
 
         data_frame.to_csv(f"{self.filepath}.csv", index_label="id", sep=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        print(f"Resulting dataset stored as -> {self.filepath}.csv")
         data_frame.to_excel(f"{self.filepath}.xlsx", index_label="id")
 
     def store_article(self, id: str, title: str, subtitle: str, content: str) -> None:
@@ -161,7 +171,8 @@ class Crawler:
                  date_end: datetime,
                  today: date,
                  now: datetime,
-                 output_instance: Output):
+                 output_instance: Output,
+                 headless: bool = True):
 
         self.chromedriver_loc = chromedriver_loc
         self.sources = sources
@@ -173,6 +184,7 @@ class Crawler:
         self.TODAY = today
         self.NOW = now
         self.output = output_instance
+        self.headless = headless
 
         self.scraper = scraper.Scraper(self)
 
@@ -182,7 +194,8 @@ class Crawler:
         # and its path stated in crawler/path_to_chromedriver.txt
 
         options = Options()
-        options.add_argument('--headless')
+        if self.headless:
+            options.add_argument('--headless')
         options.add_argument("enable-automation")
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-extensions")
@@ -229,10 +242,10 @@ def main():
     sources = input.get_sources()
     sources_out_of_order = input.get_sources_out_of_order()
     sources_elements = input.get_sources_elements()
-    search_terms = input.get_search_terms()
+    search_name, search_terms = input.get_search_terms()
     (date_init, date_end) = input.get_date_interval()
 
-    output = Output()
+    output = Output(search_name)
 
     crawler = Crawler(chromedriver_loc,
                       sources,
@@ -243,7 +256,8 @@ def main():
                       date_end,
                       today,
                       now,
-                      output)
+                      output,
+                      headless=True)
     
     results = crawler.crawl()
 

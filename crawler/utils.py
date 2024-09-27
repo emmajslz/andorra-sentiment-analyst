@@ -1,17 +1,18 @@
 from datetime import date, datetime, timedelta, time
 from dateutil.relativedelta import relativedelta
 
-def prints(what,
-           term=None,
-           journal=None,
-           len_comments=None,
-           date_article=None,
-           title=None,
-           new_article=False,
-           date_init=None,
-           date_end=None,
-           search_terms=None,
-           url=None):
+def prints(what: str,
+           term: str=None,
+           journal: str=None,
+           len_comments: int=None,
+           date_article: datetime=None,
+           title: str=None,
+           new_article: bool=False,
+           date_init: datetime=None,
+           date_end: datetime=None,
+           search_terms: list=None,
+           url: str=None,
+           current_page: int=None) -> None:
     
     '''
     Function to print status updates to the standard output.
@@ -24,41 +25,49 @@ def prints(what,
             'diari': "Diari d'Andorra",
             'forum': "fòrum.ad"}
     
-    if what == 'mode':
-        print("----------------------------------------------------------------------------------")
-        print(f"Searching articles with the following search terms: {search_terms}")
-        print("Searching articles between",
-            date_init.strftime("%Y-%m-%d - %H:%M"),
-            "and",
-            date_end.strftime("%Y-%m-%d - %H:%M"))
+    match what:
+        case 'mode':
+            print("----------------------------------------------------------------------------------")
+            print(f"Searching articles with the following search terms: {search_terms}")
+            print("Searching articles between",
+                date_init.strftime("%Y-%m-%d - %H:%M"),
+                "and",
+                date_end.strftime("%Y-%m-%d - %H:%M"))
 
-    elif what == 'searching':
-        print("----------------------------------------------------------------------------------")
-        print("Searching at", names[journal])
+        case 'searching':
+            print("----------------------------------------------------------------------------------")
+            print("Searching at", names[journal])
 
-    elif what == 'term':
-        print(f"--> SEARCHING TERM {term} ...")
+        case 'term':
+            print(f"--> SEARCHING TERM {term} ...")
 
-    elif what == 'comments':
-        if new_article:
-            if len_comments == 1:
-                print(f"       -{len_comments} comment")
-            elif len_comments > 1:
-                print(f"       -> {len_comments} comments")
+        case 'comments':
+            if new_article:
+                if len_comments == 1:
+                    print(f"       -{len_comments} comment")
+                elif len_comments > 1:
+                    print(f"       -> {len_comments} comments")
 
-    elif what == 'article':
-        print("    -", date_article, "->", title)
+        case 'article':
+            print("    -", date_article, "->", title)
 
-    elif what == 'out_of_order':
-        print(f":( Under maintenance. {names[journal]} is currently out of order.")
-        print("--> Searching methods are currently being updated.")
+        case 'out_of_order':
+            print(f":( Under maintenance. {names[journal]} is currently out of order.")
+            print("--> Searching methods are currently being updated.")
 
-    elif what == 'no_results':
-        print("----------------------------------------------------------------------------------")
-        print(f"The search yielded no results.")
+        case 'no_results':
+            print("----------------------------------------------------------------------------------")
+            print(f"The search yielded no results.")
 
-    elif what == 'url':
-        print(f"URL: {url} ...")
+        case 'url':
+            print(f"URL: {url} ...")
+
+        case 'current_page':
+            print(f"CURRENT PAGE -> {current_page}")
+
+        case 'loading_more_results':
+            print(f"LOADING MORE RESULTS...")
+
 
 def string_to_datetime(string: str, date_format: str, formatted: bool, multiple_formats: bool) -> datetime:
     # We convert the string that we obtained from the web into a datetime object.
