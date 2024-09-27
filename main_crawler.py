@@ -23,6 +23,7 @@ class Input:
         self.path_to_sources = 'data/sources.csv'
         self.path_to_sources_out_of_order = 'crawler/sources_out_of_order.txt'
         self.path_to_search_terms = 'data/search_terms.csv'
+        self.path_to_sources_elements= 'data/sources_elements.csv'
 
         self.NOW = now
         self.TODAY = today
@@ -43,6 +44,9 @@ class Input:
         sources_out_of_order = [line.strip() for line in lines]
             
         return sources_out_of_order
+
+    def get_sources_elements(self) -> pd.DataFrame:
+        return pd.read_csv(self.path_to_sources_elements, delimiter=';').set_index('source')
     
     def get_search_terms(self) -> list:
 
@@ -79,6 +83,7 @@ class Input:
 
         return (date_init, date_end)
 
+ 
 class Output:
 
     def __init__(self):
@@ -130,7 +135,7 @@ class Output:
         data_frame = pd.DataFrame.from_dict(results, orient="index", columns=self.headers)
 
         data_frame.to_csv(f"{self.filepath}.csv")
-        #data_frame.to_excel(f"{self.filepath}.xlsx")
+        data_frame.to_excel(f"{self.filepath}.xlsx")
 
 class Crawler:
     
@@ -138,6 +143,7 @@ class Crawler:
                  chromedriver_loc: str,
                  sources: list,
                  sources_out_of_order: list,
+                 sources_elements: pd.DataFrame,
                  search_terms: list,
                  date_init: datetime,
                  date_end: datetime,
@@ -147,6 +153,7 @@ class Crawler:
         self.chromedriver_loc = chromedriver_loc
         self.sources = sources
         self.sources_out_of_order = sources_out_of_order
+        self.sources_elements = sources_elements
         self.search_terms = search_terms
         self.date_init = date_init
         self.date_end = date_end
@@ -161,12 +168,12 @@ class Crawler:
         # and its path stated in crawler/path_to_chromedriver.txt
 
         options = Options()
-        # options.add_argument('--headless')
-        # options.add_argument("enable-automation")
-        # options.add_argument("--no-sandbox")
-        # options.add_argument("--disable-extensions")
-        # options.add_argument("--dns-prefetch-disable")
-        # options.add_argument("--disable-gpu")
+        options.add_argument('--headless')
+        options.add_argument("enable-automation")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-extensions")
+        options.add_argument("--dns-prefetch-disable")
+        options.add_argument("--disable-gpu")
 
         s = Service(self.chromedriver_loc)
         driver = webdriver.Chrome(service=s, options=options)
@@ -207,12 +214,22 @@ def main():
     chromedriver_loc = input.get_chromedriver_loc()
     sources = input.get_sources()
     sources_out_of_order = input.get_sources_out_of_order()
+    sources_elements = input.get_sources_elements()
     search_terms = input.get_search_terms()
     (date_init, date_end) = input.get_date_interval()
 
     output = Output()
 
-    crawler = Crawler(chromedriver_loc, sources, sources_out_of_order, search_terms, date_init, date_end, today, now)
+    crawler = Crawler(chromedriver_loc,
+                      sources,
+                      sources_out_of_order,
+                      sources_elements,
+                      search_terms,
+                      date_init,
+                      date_end,
+                      today,
+                      now)
+    
     results = crawler.crawl()
 
     if results:

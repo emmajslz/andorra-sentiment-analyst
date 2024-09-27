@@ -27,11 +27,14 @@ class Parser:
         locs = {
             'altaveu': ('div', "c-news-list__wrapper"),
             'periodic': ('li', re.compile("item article article_llistat.*")),
-            'bondia': ('div', re.compile("^views-row views-row-.+ views-row-(even|odd)( views-row-(first|last))?$")),
+            'bondia': ('div', "flex flex-col gap-1"),
             'forum': ('article', re.compile("^entry author-.* post-.*")),
             'ara': ('article', "ara-card ara-card--article")
         }
-                
+
+        if journal == 'bondia':
+            soup = soup.find('section', class_="col-span-12")
+
         return soup.find_all(locs[journal][0], class_=locs[journal][1])
     
     def next_all_articles(self, journal: str, soup: BeautifulSoup, i) -> list:
@@ -40,10 +43,6 @@ class Parser:
             case 'ara':
                 next_pages = soup.find('div', class_="next-page").find_all('div', class_="page-container")[i]
                 return self.all_articles(journal, next_pages)
-
-
-
-
 
     def get_datetime(self, journal: str, article, soup: BeautifulSoup) -> datetime:
         # We look for the article's datetime (current element on the list)
@@ -55,7 +54,7 @@ class Parser:
         date_formats = {'altaveu': "%d/%m/%Y (%H:%M CET)",
                         'periodic': "%d.%m.%Y - %H:%M h",
                         'ara': "%Y-%m-%dT%H:%M:%S",
-                        'bondia': "bondia",
+                        'bondia': "%Y-%m-%d %H:%M:%S",
                         'diari': "%Y-%m-%d %H:%M:%S",
                         'forum': ["%d/%m/%y %H:%M", "%d/%m/%Y %H:%M"],
                         'ser': "%d/%m/%Y - %H:%M h CUT"}
@@ -70,13 +69,13 @@ class Parser:
         match journal:
             case 'altaveu':
                 date_string = self.get_datetime_in_article(journal, soup)
+                #date_string = article.find('time', class_="c-news-list__time").text
             case 'periodic':
                 date_string = article.a.div.time.string
             case 'ara':
                 date_string = self.get_datetime_in_article(journal, soup)
             case 'bondia':
-                date_string = article.find('div', class_="views-field views-field-created").span.string
-                formatted = False
+                date_string = article.find('div', class_="flex flex-row gap-2 italic text-sm").span.text
             case 'diari':
                 date_string = self.get_datetime_in_article(journal, soup)
             case 'forum':
@@ -97,10 +96,9 @@ class Parser:
             case 'periodic':
                 return article.a['href']
             case 'ara':
-                #return article.find_element(By.XPATH, './/div/h2/a').get_attribute("href")
                 return article.a['href']
             case 'bondia':
-                return "https://www.bondia.ad" + article.div.span.strong.a['href']
+                return article.find('a')['href'].strip()
             case 'diari':
                 return article.find_element(By.XPATH, './/h2/a').get_attribute('href')
             case 'forum':
@@ -117,10 +115,9 @@ class Parser:
             case 'periodic':
                 return article.a.div.h2.string
             case 'ara':
-                #return article.find_element(By.XPATH, './/div/h2/a').get_attribute("title")
                 return article.a['title']
             case 'bondia':
-                return article.find('div', class_="views-field views-field-title").span.strong.a.span.string
+                return article.find('a').text.strip()
             case 'diari':
                 return article.find_element(By.XPATH, './/h2/a').get_attribute("textContent")
             case 'forum':
@@ -149,7 +146,7 @@ class Parser:
             case 'ara':
                 category = article.div.div.a.text
             case 'bondia':
-                category = self.get_category_in_article("bondia", soup)[10:]
+                category = article.div.div.div.text
             case 'diari':
                 category = (article.find_element(By.XPATH, './/h2/a').get_attribute('href')).split('/')[4]
             case 'forum':
@@ -184,8 +181,6 @@ class Parser:
         # In the event that the category isn't available in the main article list, we open the article to get it.
 
         match journal:
-            case 'bondia':
-                return soup.body['class'][8]
             case 'ser':
                 try:
                     category = soup.find('a', attrs={'class': "bcrumb"})['title']
