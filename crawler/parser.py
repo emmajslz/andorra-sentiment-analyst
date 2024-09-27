@@ -45,7 +45,7 @@ class Parser:
                 next_pages = soup.find('div', class_="next-page").find_all('div', class_="page-container")[i]
                 return self.all_articles(journal, next_pages)
 
-    def get_datetime(self, journal: str, article, soup: BeautifulSoup) -> datetime:
+    def get_datetime(self, journal: str, article, soup: BeautifulSoup = None) -> datetime:
         # We look for the article's datetime (current element on the list)
 
         # In some cases, we'll need to look for the category inside the article (once we get the link).

@@ -554,10 +554,10 @@ class Forum:
                 # date_in_interval = False so the loop in scrape_numbered_pages can stop.
                 while date_init <= date_article and i < len_articles and date_in_interval:
                     article = articles[i]
-                    link = self.parser.get_link(journal, article)
-                    soup = self.static_methods.get_soup(link)
-                    date_article = self.parser.get_datetime(journal, article, soup)
+                    date_article = self.parser.get_datetime(journal, article)
                     if date_article <= date_end:
+                        link = self.parser.get_link(journal, article)
+                        soup = self.static_methods.get_soup(link)
                         if date_init <= date_article:
                             dict_articles = self.add_article.add_article_to_dict(journal, article, date_article, link, soup,
                                                                     dict_articles, date_end, already_saved, term)
@@ -699,10 +699,10 @@ class Bondia:
                 # date_in_interval = False so the loop in scrape_numbered_pages can stop.
                 while date_init <= date_article and i < len_articles and date_in_interval:
                     article = articles[i]
-                    link = self.parser.get_link(journal, article)
-                    soup = self.static_methods.get_soup(link)
-                    date_article = self.parser.get_datetime(journal, article, soup)
+                    date_article = self.parser.get_datetime(journal, article)
                     if date_article <= date_end:
+                        link = self.parser.get_link(journal, article)
+                        soup = self.static_methods.get_soup(link)
                         if date_init <= date_article:
                             dict_articles = self.add_article.add_article_to_dict(journal, article, date_article, link, soup,
                                                                     dict_articles, date_end, already_saved, term)
@@ -765,16 +765,15 @@ class Periodic:
                 while date_init <= date_article and i < len_articles:
                     article = articles[i]
 
-                    # We get the artcle's link to turn into a soup object.
-                    # We'll use soup to get the attributes and content we need from inside the article
-                    link = self.parser.get_link(journal, article)
-                    soup = self.dynamic_methods.get_soup(journal, link)
-
                     # We get the article's datetime to check if we are inside the interval
-                    date_article = self.parser.get_datetime(journal, article, soup)
+                    date_article = self.parser.get_datetime(journal, article)
 
                     # If the atricle is in the desired interval, we use add_article_to_dict(...) to add it to the dictionary
                     if date_init <= date_article <= date_end:
+                        # We get the artcle's link to turn into a soup object.
+                        # We'll use soup to get the attributes and content we need from inside the article
+                        link = self.parser.get_link(journal, article)
+                        soup = self.dynamic_methods.get_soup(journal, link)
                         dict_articles = self.add_article.add_article_to_dict(journal,article, date_article, link, soup,
                                                                             dict_articles, date_end, already_saved, term)
                     i += 1
@@ -969,10 +968,10 @@ class Diari:
                 # date_in_interval = False so the loop in scrape_numbered_pages can stop.
                 while date_init <= date_article and i < len_articles and date_in_interval:
                     article = articles[i]
-                    link = self.parser.get_link(journal, article)
-                    soup = self.static_methods.get_soup(link)
-                    date_article = self.parser.get_datetime(journal, article, soup)
+                    date_article = self.parser.get_datetime(journal, article)
                     if date_article <= date_end:
+                        link = self.parser.get_link(journal, article)
+                        soup = self.static_methods.get_soup(link)
                         if date_init <= date_article:
                             dict_articles = self.add_article.add_article_to_dict(journal, article, date_article, link, soup,
                                                                     dict_articles, date_end, already_saved, term)
