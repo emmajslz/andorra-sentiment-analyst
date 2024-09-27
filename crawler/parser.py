@@ -57,8 +57,7 @@ class Parser:
                         'ara': "%Y-%m-%dT%H:%M:%S",
                         'bondia': "%Y-%m-%d %H:%M:%S",
                         'diari': "%d.%m.%Y | %H:%M",
-                        'forum': ["%d/%m/%y %H:%M", "%d/%m/%Y %H:%M"],
-                        'ser': "%d/%m/%Y - %H:%M h CUT"}
+                        'forum': ["%d/%m/%y %H:%M", "%d/%m/%Y %H:%M"]}
 
         # Variables that will indicate to the string_to_datetime(string, date_format) function how it should proceed
         # formatted is True if the string we obtain from the web can be turned into a datetime object
@@ -81,8 +80,6 @@ class Parser:
             case 'forum':
                 date_string = article.div.div.time.string
                 multiple_formats = True
-            case 'ser':
-                date_string = self.get_datetime_in_article(journal, soup)
 
         # We use the string_to_datetime(...) function to return a datetime object.
         # We .strip() the text to avoid unnecessary spaces at the beggining or the end.
@@ -103,8 +100,6 @@ class Parser:
                 return article.find('h2', class_="c-article__title").a['href']
             case 'forum':
                 return article.div.div.header.h2.a['href']
-            case 'ser':
-                return article.find_element(By.XPATH, './/a').get_attribute("href")
 
     def get_title(self, journal: str, article):
         # We look for the article's title (current element on the list)
@@ -122,8 +117,6 @@ class Parser:
                 return article.find('h2', class_="c-article__title").a.text.strip()
             case 'forum':
                 return article.div.div.header.h2.a.string
-            case 'ser':
-                return article.find_element(By.XPATH, './/div[@class="queryly_item_title"]').get_attribute("textContent")
 
     def get_category(self, journal, article, soup):
         # We look for the article's category (current element on the list)
@@ -156,8 +149,6 @@ class Parser:
                 else:
                     # In this case, some articles do not have a category informed. We leave category as blank.
                     category = ""
-            case 'ser':
-                category = self.get_category_in_article("ser", soup)
 
         # We use unidecode to get rid of special characters (à, é, etc.) and .lower() to get rid of caps.
         # The idea is for the categories to be as similar as possible between journals
@@ -174,19 +165,6 @@ class Parser:
                 return soup.find('meta', attrs={'property': "article:modified_time"})['content']
             case 'ara':
                 return soup.find('meta', attrs={'property': "article:modified_time"})['content'].split('+')[0]
-            case 'ser':
-                return soup.find('span', attrs={'class': "a_ti"}).string
-            
-    def get_category_in_article(self, journal: str, soup) -> str:
-        # In the event that the category isn't available in the main article list, we open the article to get it.
-
-        match journal:
-            case 'ser':
-                try:
-                    category = soup.find('a', attrs={'class': "bcrumb"})['title']
-                except TypeError:
-                    category = soup.find('div', class_="cnt-cintillo").div.span.string
-                return category
 
     def get_content(self, journal, soup):
         # We look for the content of the article and the subtitle in case it has one.
@@ -202,8 +180,7 @@ class Parser:
                         ['div', 'class', "ara-body"]],
                 'bondia': [[], ['div', 'property', re.compile(".*content:encoded")]],
                 'diari': [[], ['div', 'id', "txt"]],
-                'forum': [[], ['div', 'class', "entry-the-content"]],
-                'ser': [[], ['div', 'class', "cnt-txt"]]}
+                'forum': [[], ['div', 'class', "entry-the-content"]]}
 
         subtitle = ""
         content = ""
@@ -212,8 +189,6 @@ class Parser:
         if locs[journal][0]:
             if soup.find(locs[journal][0][0], attrs={locs[journal][0][1]: locs[journal][0][2]}):
                 subtitle = soup.find(locs[journal][0][0], attrs={locs[journal][0][1]: locs[journal][0][2]}).text
-        elif journal == "ser":
-            subtitle = soup.find('article').header.h2.text
 
         # Content:
         if journal == "altaveu" and soup.find('div', class_="c-mainarticle__opening"):

@@ -22,8 +22,7 @@ def prints(what,
             'ara': "Ara Andorra",
             'bondia': "Bondia.ad",
             'diari': "Diari d'Andorra",
-            'forum': "fòrum.ad",
-            'ser': "Cadena Ser Andorra"}
+            'forum': "fòrum.ad"}
     
     if what == 'mode':
         print("----------------------------------------------------------------------------------")

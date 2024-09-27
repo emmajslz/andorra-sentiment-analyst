@@ -200,8 +200,7 @@ class DynamicMethods:
         # We define the locations of the buttons to press in each journal as XPATHs
         self.cookies = {'altaveu': '//*[contains(text(), "AGREE")]',
                         'diari': '//button[@class="cky-btn cky-btn-accept"]',
-                        'ara': '//button[@id="didomi-notice-agree-button"]',
-                        'ser': '//button[@id="didomi-notice-agree-button"]'}
+                        'ara': '//button[@id="didomi-notice-agree-button"]'}
 
         self.notifs = {'altaveu': '//button[@class="align-right secondary slidedown-button"]',
                         'periodic': '//button[@class="align-right secondary slidedown-button"]',
@@ -214,8 +213,7 @@ class DynamicMethods:
         # All articles locs
         # We define the location of the articles for each journal as XPATHs
         self.all_articles_locs = {"ara": '//article[@class="ara-card ara-card--article"]',
-                                  "diari": '//ul[@class="tir-f1 con resultadosBusquedaBS"]/li',
-                                  "ser": '//div[@class="queryly_item_row"]'}
+                                  "diari": '//ul[@class="tir-f1 con resultadosBusquedaBS"]/li'}
 
     def buttons(self, journal: str) -> None:
         # We click the cookies and notifications buttons in the event we just opened the webpage and there are cookies and
@@ -249,10 +247,6 @@ class DynamicMethods:
                 # In this particular case, we have to use hard waits like .sleep(5) because of this journal's dynamic DOM
                 # (see documentation)
                 tme.sleep(5)
-            case 'ser':
-                # We change the sort order so we can loop through the articles correctly
-                order = Select(self.crawler.driver.find_element(By.ID, 'sortby'))
-                order.select_by_value('date')
             case 'periodic':
                 # If there is an advertisement pop_up that stops us from accessing the journal, we click the "Access journal"
                 # button to access the journal
@@ -971,142 +965,6 @@ class Diari:
         
         return (dict_articles, date_in_interval, successful_access)
     
-    
-    def next_page(self,
-                journal: str,
-                url: str,
-                date_init: datetime,
-                date_end: datetime,
-                already_saved=None,
-                term=None) -> dict:
-        # Structure to crawl: Next page
-        # Type of webpage: Dynamic (We use Selenium)
-        # The articles are divided in multiple pages. There is a "Next page" button at the end which will load the next page
-        # each time we press it. We use a loop that gets all the current articles, and presses the button to go to the
-        # next page
-
-        dict_articles = {}
-
-        try:
-            # We use selenium to load the page
-            self.dynamic_methods.open_url(journal, url)
-            articles = self.parser.all_articles_selenium(journal)
-            print(f"LEN ARTICLES {len(articles)}")
-            date_article = self.crawler.NOW
-            more_articles = True
-
-            i = 0
-            # We use a loop that will get the current articles, click the "Next page" button, and change to the next page
-            while date_init <= date_article and more_articles:
-                j = 0
-                while date_init <= date_article and j < len(articles):
-                    article = articles[j]
-                    link = self.parser.get_link(journal, article)
-                    soup = self.get_soup(journal, link)
-                    date_article = self.parser.get_datetime(journal, article, soup)
-                    if date_init <= date_article <= date_end:
-                        dict_articles = self.add_article_to_dict(journal, article, date_article, link, soup,
-                                                                 dict_articles, date_end, already_saved, term)
-                    j += 1
-
-                # We click the "Next page" button if it's available. If it's not, it means there are no more pages.
-                try:
-                    next_button = WebDriverWait(self.crawler.driver, 15).until(
-                        EC.presence_of_element_located((By.CSS_SELECTOR, self.load_next_page)))
-                except TimeoutException:
-                    more_articles = False
-
-                if more_articles:
-                    # If the button is available, we click it to change to the next page and wait for the page to laod
-                    self.crawler.driver.execute_script("arguments[0].click();", next_button)
-
-                    articles = self.parser.all_articles_selenium(journal)
-                    i += 1
-
-        except Exception as e:
-            print(f"\n--> There was an error crawling in journal {journal}")
-            print(f"ERROR MESSAGE:\n{e}")
-            traceback.print_exc()
-            print("\n")
-
-        return dict_articles
-
-
-class Ser:
-
-    def __init__(self, crawler_instance):
-
-        # We define our crawler (argument) and parser (new object) instances
-        self.crawler = crawler_instance
-        self.parser = parser.Parser()
-
-        # We get an instance of the different classes to obtain the methods we need
-        self.static_methods = StaticMethods(self.crawler)
-        self.dynamic_methods = DynamicMethods(self.crawler)
-        self.add_article = AddArticle(self.crawler, self.parser, self.dynamic_methods)
-
-        # We define all the variables to store locations or paths that we'll need
-        self.load_next_page = self.crawler.sources_elements.loc['ser', 'load_next_page']
-
-    def next_page(self,
-                journal: str,
-                url: str,
-                date_init: datetime,
-                date_end: datetime,
-                already_saved=None,
-                term=None) -> dict:
-        # Structure to crawl: Next page
-        # Type of webpage: Dynamic (We use Selenium)
-        # The articles are divided in multiple pages. There is a "Next page" button at the end which will load the next page
-        # each time we press it. We use a loop that gets all the current articles, and presses the button to go to the
-        # next page
-
-        dict_articles = {}
-
-        try:
-            # We use selenium to load the page
-            self.dynamic_methods.open_url(journal, url)
-            articles = self.parser.all_articles_selenium(journal)
-            print(f"LEN ARTICLES {len(articles)}")
-            date_article = self.crawler.NOW
-            more_articles = True
-
-            i = 0
-            # We use a loop that will get the current articles, click the "Next page" button, and change to the next page
-            while date_init <= date_article and more_articles:
-                j = 0
-                while date_init <= date_article and j < len(articles):
-                    article = articles[j]
-                    link = self.parser.get_link(journal, article)
-                    soup = self.get_soup(journal, link)
-                    date_article = self.parser.get_datetime(journal, article, soup)
-                    if date_init <= date_article <= date_end:
-                        dict_articles = self.add_article_to_dict(journal, article, date_article, link, soup,
-                                                                 dict_articles, date_end, already_saved, term)
-                    j += 1
-
-                # We click the "Next page" button if it's available. If it's not, it means there are no more pages.
-                try:
-                    next_button = WebDriverWait(self.crawler.driver, 15).until(
-                        EC.presence_of_element_located((By.CSS_SELECTOR, self.load_next_page)))
-                except TimeoutException:
-                    more_articles = False
-
-                if more_articles:
-                    # If the button is available, we click it to change to the next page and wait for the page to laod
-                    self.crawler.driver.execute_script("arguments[0].click();", next_button)
-
-                    articles = self.parser.all_articles_selenium(journal)
-                    i += 1
-
-        except Exception as e:
-            print(f"\n--> There was an error crawling in journal {journal}")
-            print(f"ERROR MESSAGE:\n{e}")
-            traceback.print_exc()
-            print("\n")
-
-        return dict_articles
-
 """ -- THE MAIN SCRAPER --"""
 class Scraper:
 
@@ -1132,11 +990,10 @@ class Scraper:
                 'ara': "https://www.ara.ad/cercador?text=",
                 'bondia': "https://www.bondia.ad/cercador?search=",
                 'diari': "https://www.diariandorra.ad/search/?query=",
-                'forum': "https://forum.ad/?s=",
-                'ser': "https://cadenaser.com/buscar/?query="}
+                'forum': "https://forum.ad/?s="}
         
         match journal:
-            case 'altaveu' | 'ser' | 'diari' | 'bondia':
+            case 'altaveu' | 'diari' | 'bondia':
                 url = urls[journal] + words[0]
                 i = 1
                 while i < word_count:
@@ -1225,9 +1082,5 @@ class Scraper:
                                                                 self.crawler.date_end,
                                                                 already_saved,
                                                                 term))
-
-                case 'ser':
-                    # next_page
-                    result.update({})
 
         return result
