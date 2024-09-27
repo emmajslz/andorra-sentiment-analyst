@@ -717,12 +717,12 @@ class Periodic:
         # We define all the variables to store locations or paths that we'll need
 
     def single_page(self,
-                           journal: str,
-                           url: str,
-                           date_init: datetime,
-                           date_end: datetime,
-                           already_saved=None,
-                           term=None) -> dict:
+                    journal: str,
+                    url: str,
+                    date_init: datetime,
+                    date_end: datetime,
+                    already_saved=None,
+                    term=None) -> dict:
         # Structure to crawl: Single page
         # Type of webpage: Static/Dynamic (We use beautifulsoup no navigate, but we need selenium to access the url)
         # All the articles are on a single page. We get a single list with all the articles and loop through it
@@ -730,7 +730,7 @@ class Periodic:
 
         dict_articles = {}
 
-        soup = self.get_soup(journal, url)
+        soup = self.dynamic_methods.get_soup(journal, url)
 
         if soup:
             try:
@@ -748,7 +748,7 @@ class Periodic:
                     # We get the artcle's link to turn into a soup object.
                     # We'll use soup to get the attributes and content we need from inside the article
                     link = self.parser.get_link(journal, article)
-                    soup = self.get_soup(journal, link)
+                    soup = self.dynamic_methods.get_soup(journal, link)
 
                     # We get the article's datetime to check if we are inside the interval
                     date_article = self.parser.get_datetime(journal, article, soup)
