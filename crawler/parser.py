@@ -182,10 +182,10 @@ class Parser:
                 'ara':      [['h2', 'class', "subtitle"],
                             ['div', 'class', "ara-body"]],
 
-                'bondia':   [[], ['div', 'property',
-                                re.compile(".*content:encoded")]],
+                'bondia':   [[],
+                             ['div', 'property', re.compile(".*content:encoded")]],
 
-                'diari':    [[],
+                'diari':    [['p', 'class', "c-detail__subtitle"],
                             ['div', 'class', "c-detail__body"]],
 
                 'forum':    [[],
@@ -195,25 +195,41 @@ class Parser:
         content = ""
 
         # Subtitle:
-        if locs[journal][0]:
-            if soup.find(locs[journal][0][0], attrs={locs[journal][0][1]: locs[journal][0][2]}):
-                subtitle = soup.find(locs[journal][0][0], attrs={locs[journal][0][1]: locs[journal][0][2]}).text
+        match journal:
+            case 'bondia':
+                subtitle = soup.find('p', attrs={'class': "text-2xl"}).text
+            case _:
+                if locs[journal][0]:
+                    if soup.find(locs[journal][0][0], attrs={locs[journal][0][1]: locs[journal][0][2]}):
+                        subtitle = soup.find(locs[journal][0][0], attrs={locs[journal][0][1]: locs[journal][0][2]}).text
 
         # Content:
-        if journal == "altaveu" and soup.find('div', class_="c-mainarticle__opening"):
-            # In l'Altaveu, we have to first find the opening in case there's one, as that is part of the content of the
-            # article
-            opening = soup.find('div', class_="c-mainarticle__opening").text
-            content = opening + soup.find(locs[journal][1][0],
-                                        attrs={locs[journal][1][1]: locs[journal][1][2]}).text.strip()
-        elif journal == "diari":
-            paragraphs = soup.find('div', class_="c-detail__body").find_all('p')
-            content = '\n'.join([par.text for par in paragraphs])
-        elif soup.find(locs[journal][1][0], attrs={locs[journal][1][1]: locs[journal][1][2]}):
-            content = soup.find(locs[journal][1][0], attrs={locs[journal][1][1]: locs[journal][1][2]}).text.strip()
+        match journal:
+            case 'altaveu':
+                opening = ""
+                if soup.find('div', class_="c-mainarticle__opening"):
+                    # In l'Altaveu, we have to first find the opening in case there's one, as that is part of the content of the article
+                    opening = soup.find('div', class_="c-mainarticle__opening").text
+                paragraphs = soup.find('div', class_="c-detail__body").find_all('p')
+                content = opening + '\n'.join([par.text for par in paragraphs])
+            
+            case 'bondia':
+                paragraphs = soup.find('div', class_="article-body my-5 text-lg").div.find_all('p')
+                content = '\n'.join([par.text for par in paragraphs])
+
+            case 'diari':
+                paragraphs = soup.find('div', class_="c-detail__body").find_all('p', class_="paragraph")
+                content = '\n'.join([par.text for par in paragraphs])
+
+            case _:
+                content = soup.find(locs[journal][1][0], attrs={locs[journal][1][1]: locs[journal][1][2]}).text.strip()
 
         return subtitle, content
 
+    def get_subtitle(self, journal: str, soup: BeautifulSoup) -> str:
+
+        return 0
+    
     # -- Comments ------------------------
     def get_comment_attributes(self, journal, comment):
         # For each comment, we look for the desired attributes and return them as a list

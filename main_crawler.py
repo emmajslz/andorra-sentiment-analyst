@@ -154,8 +154,8 @@ class Output:
         filepath = f"{self.articles_path}{id}.txt"
 
         with open(filepath, 'w') as file:
-            file.write(title + "\n")
-            file.write(subtitle + "\n")
+            file.write(title + "\n\n")
+            file.write(subtitle + "\n\n")
             file.write(content)
 
 
