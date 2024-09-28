@@ -401,10 +401,9 @@ class Altaveu:
                                     date_init: datetime,
                                     date_end: datetime,
                                     term: str):
-        # Function used inside scrape_numbered_pages(...)
-        # For each numbered page, we'll return a dictionary with all the articles inside the interval
-        # We return the variable date_in_interval. If it's False, the loop in scrape_numbered_pages(...) will stop.
+        
         utils.prints('url', url=url)
+
         dict_articles = {}
         dict_comments = {}
         date_in_interval = True
@@ -419,7 +418,7 @@ class Altaveu:
                 len_articles = len(articles)
 
                 if len_articles == 0:
-                    return {}, False, successful_access
+                    return {}, {}, False, successful_access
 
                 date_article = self.crawler.NOW
 
@@ -458,7 +457,7 @@ class Altaveu:
                 date_in_interval = False
         else:
             successful_access = False
-        
+
         return (dict_articles, dict_comments, date_in_interval, successful_access)
 
 class Forum:
@@ -552,7 +551,7 @@ class Forum:
                 len_articles = len(articles)
 
                 if len_articles == 0:
-                    return {}, False, successful_access
+                    return {}, {}, False, successful_access
 
                 date_article = self.crawler.NOW
 
@@ -636,6 +635,7 @@ class Bondia:
             self.dynamic_methods.open_url(journal, url)
             tme.sleep(15)
             soup = self.dynamic_methods.get_soup(journal)
+
             (articles_current_page, comments_current_page, date_in_interval, successful_access) = self.numbered_pages_current_page(journal,
                                                                                                             date_init,
                                                                                                             date_end,
@@ -709,16 +709,18 @@ class Bondia:
                 len_articles = len(articles)
 
                 if len_articles == 0:
-                    return {}, False, successful_access
+                    return {}, {}, False, successful_access
 
                 date_article = self.crawler.NOW
 
                 i = 0
+
                 # Same method as scrape_single_page, except in the event we exit the date interval, we'll return a variable
                 # date_in_interval = False so the loop in scrape_numbered_pages can stop.
                 while date_init <= date_article and i < len_articles and date_in_interval:
                     article = articles[i]
                     date_article = self.parser.get_datetime(journal, article)
+                    
                     if date_article <= date_end:
                         link = self.parser.get_link(journal, article)
                         soup = self.static_methods.get_soup(link)
@@ -1013,7 +1015,7 @@ class Diari:
                 len_articles = len(articles)
 
                 if len_articles == 0:
-                    return {}, False, successful_access
+                    return {}, {}, False, successful_access
 
                 date_article = self.crawler.NOW
 

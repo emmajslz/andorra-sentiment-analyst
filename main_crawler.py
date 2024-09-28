@@ -21,14 +21,37 @@ class Input:
     
     def __init__(self, today: date, now: datetime):
 
+        self.path_to_input = self.get_args_input_path()
+        self.path_to_sources = f"{self.path_to_input}sources.csv"
+        self.path_to_search_terms = f"{self.path_to_input}search_terms.csv"
+        
         self.path_to_chromedriver_loc = 'crawler/path_to_chromedriver.txt'
-        self.path_to_sources = 'crawler/sources.csv'
         self.path_to_sources_out_of_order = 'crawler/sources_out_of_order.txt'
-        self.path_to_search_terms = 'crawler/search_terms.csv'
         self.path_to_sources_elements= 'crawler/sources_elements.csv'
 
         self.NOW = now
         self.TODAY = today
+
+    def get_args_input_path(self) -> str:
+
+        # Script arguments
+        parser = argparse.ArgumentParser(add_help=False)
+
+        parser.add_argument("path", type=str, help="Path to the desired input directory.")
+
+        args, _ = parser.parse_known_args()
+
+        if not os.path.exists(args.path):
+            print(f"Invalid path to get inputs -> {args.path}")
+            sys.exit(2)
+        else:
+            print(f"Getting input files from {args.path}")
+
+        path = args.path
+        if path[-1] != '/':
+            path = path + '/'
+
+        return path
 
     def get_chromedriver_loc(self) -> str:
         return open(self.path_to_chromedriver_loc, 'r').readline().strip()
@@ -58,7 +81,7 @@ class Input:
 
         return search_name, search_terms
     
-    def get_date_interval(self) -> tuple:
+    def get_args_date_interval(self) -> tuple:
 
         # Gets the start and end date of the desired interval from the command line arguments
 
@@ -69,6 +92,7 @@ class Input:
         # Script arguments
         parser = argparse.ArgumentParser()
 
+        parser.add_argument("path", type=str, help="Path to the desired directory or file")
         parser.add_argument('-i', type=str, metavar="date_init", help="Initial date of the interval we want to observe")
         parser.add_argument('-e', type=str, metavar="date_end", help="Final date of the interval we want to observe")
 
@@ -84,16 +108,23 @@ class Input:
         if args.i is not None:
             date_init = datetime.strptime(args.i, '%Y%m%d')
 
+        if date_init > self.NOW or date_end > self.NOW:
+            print(f"Dates cannot be in the future.")
+            sys.exit(2)
+        if date_init > date_end:
+            print(f"Start date cannot be after end date.")
+            sys.exit(2)
+
         return (date_init, date_end)
 
 class Output:
 
-    def __init__(self, search_name):
+    def __init__(self, search_name, output_path):
 
-        self.path = 'data/'
+        self.path = output_path
         self.search_name = search_name
 
-        self.articles_path = 'data/articles/'
+        self.articles_path = self.define_articles_path()
 
         self.filepath = f"{self.path}{self.define_filename()}"
         self.headers = [
@@ -127,6 +158,15 @@ class Output:
     
     def define_comments_filename(self) -> str:
         return f"{datetime.now().strftime('%Y%m%d')}_{self.search_name}_comments"
+
+    def define_articles_path(self) -> str:
+
+        articles_path = f"{self.path}articles/"
+
+        if not os.path.exists(articles_path):
+            os.makedirs(articles_path, exist_ok=True)
+
+        return articles_path
 
     def check_filepath(self) -> None:
 
@@ -276,9 +316,9 @@ def main():
     sources_out_of_order = input.get_sources_out_of_order()
     sources_elements = input.get_sources_elements()
     search_name, search_terms = input.get_search_terms()
-    (date_init, date_end) = input.get_date_interval()
+    (date_init, date_end) = input.get_args_date_interval()
 
-    output = Output(search_name)
+    output = Output(search_name, input.path_to_input)
 
     crawler = Crawler(chromedriver_loc,
                       sources,
