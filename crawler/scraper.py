@@ -150,19 +150,21 @@ class Comments:
                 return self.get_comments_soup(journal, soup)
 
             case 'diari':
-                self.dynamic_methods.open_url(journal, url)
-                tme.sleep(1)
-                shadow_host = self.crawler.driver.find_element(By.CSS_SELECTOR, "hyvor-talk-comments")
-                print(shadow_host)
-                # Use JavaScript to extract the shadow root's inner HTML
-                shadow_dom_html = self.crawler.driver.execute_script("""
-                    // Access the shadow root and return its inner HTML
-                    return arguments[0].shadowRoot.innerHTML;
-                """, shadow_host)
+                try:
+                    self.dynamic_methods.open_url(journal, url)
+                    tme.sleep(1)
+                    shadow_host = self.crawler.driver.find_element(By.CSS_SELECTOR, "hyvor-talk-comments")
+                    # Use JavaScript to extract the shadow root's inner HTML
+                    shadow_dom_html = self.crawler.driver.execute_script("""
+                        // Access the shadow root and return its inner HTML
+                        return arguments[0].shadowRoot.innerHTML;
+                    """, shadow_host)
 
-                # Create a BeautifulSoup object with the extracted shadow DOM HTML
-                soup = BeautifulSoup(shadow_dom_html, "html.parser")
-                return self.get_comments_soup(journal, soup)
+                    # Create a BeautifulSoup object with the extracted shadow DOM HTML
+                    soup = BeautifulSoup(shadow_dom_html, "html.parser")
+                    return self.get_comments_soup(journal, soup)
+                except:
+                    return []
 
             case 'bondia':
                 return self.get_comments_soup(journal, soup)

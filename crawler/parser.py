@@ -182,17 +182,17 @@ class Parser:
                     content = opening + '\n'.join([par.text for par in paragraphs if not par.section])
 
                 case 'forum':
-                    content = soup.find('div', class_="entry-the-content")
+                    content = soup.find('div', class_="entry-the-content").text
                 
                 case 'bondia':
                     paragraphs = soup.find('div', class_="article-body my-5 text-lg").find_all('p')
                     content = '\n'.join([par.text for par in paragraphs])
 
                 case 'periodic':
-                    content = soup.find('div', class_="oticia-main__content")
+                    content = soup.find('div', class_="noticia-main__content").text
 
                 case 'ara':
-                    content = soup.find('div', class_="ara-body")
+                    content = soup.find('div', class_="ara-body").text
 
                 case 'diari':
                     paragraphs = soup.find('div', class_="c-detail__body").find_all('p', class_="paragraph")
@@ -221,7 +221,7 @@ class Parser:
                     subtitle = soup.find('p', class_="c-detail__subtitle").text.strip()
 
         except:
-            print(f"! no subtitle found")
+            subtitle = ""
 
         return subtitle
     

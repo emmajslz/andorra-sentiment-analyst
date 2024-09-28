@@ -70,7 +70,6 @@ def prints(what: str,
         case 'loading_more_results':
             print(f"LOADING MORE RESULTS...")
 
-
 def string_to_datetime(string: str, date_format: str, formatted: bool, multiple_formats: bool) -> datetime:
     # We convert the string that we obtained from the web into a datetime object.
 

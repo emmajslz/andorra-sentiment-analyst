@@ -290,7 +290,7 @@ def main():
                       today,
                       now,
                       output,
-                      headless=False)
+                      headless=True)
     
     articles, comments = crawler.crawl()
 
