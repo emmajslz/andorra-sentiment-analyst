@@ -7,7 +7,6 @@ def prints(what: str,
            len_comments: int=None,
            date_article: datetime=None,
            title: str=None,
-           new_article: bool=False,
            date_init: datetime=None,
            date_end: datetime=None,
            search_terms: list=None,
@@ -42,11 +41,10 @@ def prints(what: str,
             print(f"--> SEARCHING TERM {term} ...")
 
         case 'comments':
-            if new_article:
-                if len_comments == 1:
-                    print(f"       -{len_comments} comment")
-                elif len_comments > 1:
-                    print(f"       -> {len_comments} comments")
+            if len_comments == 1:
+                print(f"       -{len_comments} comment")
+            elif len_comments > 1:
+                print(f"       -> {len_comments} comments")
 
         case 'article':
             print("    -", date_article, "->", title)
@@ -58,6 +56,10 @@ def prints(what: str,
         case 'no_results':
             print("----------------------------------------------------------------------------------")
             print(f"The search yielded no results.")
+
+        case 'no_comments':
+            print("----------------------------------------------------------------------------------")
+            print(f"The articles had no comments.")
 
         case 'url':
             print(f"URL: {url} ...")

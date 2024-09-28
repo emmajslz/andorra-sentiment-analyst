@@ -31,77 +31,74 @@ class AddArticle:
 
         self.comments = Comments(self.crawler, self.parser, self.dynamic_methods)
     
+    def define_article_id(self, journal: str, date_article: datetime):
+        return f"{journal[:2].upper()}{date_article.strftime("%Y%m%d%H%M%S")}"
+    
     def add_article_to_dict(self,
                             journal: str,
                             article,
+                            article_id: str,
                             date_article: datetime,
                             link: str,
                             soup: BeautifulSoup,
+                            term: str,
                             dict_articles: dict,
-                            already_saved: bool,
-                            term: str) -> dict:
+                            dict_comments: dict):
         # For each article, we use this function to determine wether or not it should be added to the dictionary,
         # get all the attributes we want, all the comments in the article (if there are any) and append all of
         # the information to the dictionary.
         # Because we look in different places, we use the already_saved argument. We pass the already existing dictionary
         # and only add the article to the current dictionary if it isn't already in already_saved.
         if soup:
-            new_article = False
+
             # We get all the attributes we don't already have
             title = self.parser.get_title(journal, article)
             category = self.parser.get_category(journal, article, soup)
             type_article = utils.category_type(category)
+
+            utils.prints('article', date_article=date_article, title=title)
+
+            # We get the content in the article
+            subtitle, content = self.parser.get_content(journal, soup)
+            self.crawler.output.store_article(article_id, title, subtitle, content)
             
-            # We construct the article id
-            id = f"{journal[:2].upper()}{date_article.strftime("%Y%m%d%H%M")}-{term}-article"
 
-            # We check if the article isn't in already_saved.
-            if (already_saved is None) or not (id in already_saved):
-                utils.prints('article', date_article=date_article, title=title)
+            # We get all the comments in the article with the get_comments(...) function. If there are none,
+            # get_comments(...) will return an empty list.
+            comments = self.comments.get_comments(journal, link, soup)
+            len_comments = len(comments)
+            utils.prints('comments', len_comments=len_comments, date_article=date_article)
 
-                # We get the content in the article
-                subtitle, content = self.parser.get_content(journal, soup)
-                self.crawler.output.store_article(id, title, subtitle, content)
+            # We add a line with all the comment information blank. If there are no comments, the article will only
+            # have this line, and if there are comments, we'll have a line that only defines the article.
+            dict_articles[article_id] = [self.crawler.NOW,
+                                        journal,
+                                        term,
+                                        date_article,
+                                        category,
+                                        type_article,
+                                        title,
+                                        link,
+                                        len_comments]
+            
+            self.crawler.saved_articles.add(article_id)
 
-                # We add a line with all the comment information blank. If there are no comments, the article will only
-                # have this line, and if there are comments, we'll have a line that only defines the article.
-                dict_articles[id] = [self.crawler.NOW,
-                                     journal,
-                                     term,
-                                     date_article,
-                                     category,
-                                     type_article,
-                                     title,
-                                     link] + [""]*8
-                # We use new_article = True, when we print the comment information, we won't print the article as
-                # it's already added.
-                new_article = True
+            # We loop through the list (if it's not empty) and add a new element to the article for each comment,
+            # with the comment information at the end.
+            for comment in comments:
+                comment_id = f"{article_id}-{str(comment[0])}"
+                if not comment_id in self.crawler.saved_comments:
+                    dict_comments[comment_id] = [article_id,
+                                                comment[1],
+                                                comment[2],
+                                                comment[3],
+                                                comment[4],
+                                                comment[5],
+                                                comment[6],
+                                                comment[7]]
+                    self.crawler.saved_comments.add(comment_id)
 
-                # We get all the comments in the article with the get_comments(...) function. If there are none,
-                # get_comments(...) will return an empty list.
-                comments = self.comments.get_comments(journal, link, soup)
-                utils.prints('comments', len_comments=len(comments), date_article=date_article, new_article=new_article)
-                # We loop through the list (if it's not empty) and add a new element to the article for each comment,
-                # with the comment information at the end.
-                for comment in comments:
-                    dict_articles[id[:-7] + str(comment[0])] = [self.crawler.NOW,
-                                                                journal,
-                                                                term,
-                                                                date_article,
-                                                                category,
-                                                                type_article,
-                                                                title,
-                                                                link,
-                                                                comment[0],
-                                                                comment[1],
-                                                                comment[2],
-                                                                comment[3],
-                                                                comment[4],
-                                                                comment[5],
-                                                                comment[6],
-                                                                comment[7]]
-
-        return dict_articles
+        return dict_articles, dict_comments
 
 class Comments:
 
@@ -344,7 +341,6 @@ class Altaveu:
                         url: str,
                         date_init: datetime,
                         date_end: datetime,
-                        already_saved: dict,
                         term: str) -> dict:
         # Structure to crawl: Numbered pages
         # Type of webpage: Static (We use beautifulsoup)
@@ -353,19 +349,20 @@ class Altaveu:
         # We add every article (list of attributes) that is inside the desired interval to the dictionary
 
         dict_articles = {}
+        dict_comments = {}
 
         try:
             current_page = 1
             utils.prints('current_page', current_page=current_page)
 
             # We use the function crawl_current_page to obtain the articles from the First page
-            (articles_current_page, date_in_interval, successful_access) = self.numbered_pages_current_page(journal,
-                                                                                                            url,
-                                                                                                            date_init,
-                                                                                                            date_end,
-                                                                                                            already_saved,
-                                                                                                            term)
+            (articles_current_page, comments_current_page, date_in_interval, successful_access) = self.numbered_pages_current_page(journal,
+                                                                                                                url,
+                                                                                                                date_init,
+                                                                                                                date_end,
+                                                                                                                term)
             dict_articles.update(articles_current_page)
+            dict_comments.update(comments_current_page)
 
             # We loop through the different numbered pages, until the articles are outside the date interval
             while date_in_interval and successful_access:
@@ -374,13 +371,13 @@ class Altaveu:
                 # We define the next url (next numbered page) thanks to the function numbered_page_url
                 next_url = utils.numbered_page_url(journal, url, self.next_page, current_page)
                 # We get all the new articles from the new numbered page.
-                (articles_current_page, date_in_interval, successful_access) = self.numbered_pages_current_page(journal,
+                (articles_current_page, comments_current_page, date_in_interval, successful_access) = self.numbered_pages_current_page(journal,
                                                                                                                 next_url,
                                                                                                                 date_init,
                                                                                                                 date_end,
-                                                                                                                already_saved,
                                                                                                                 term)
                 dict_articles.update(articles_current_page)
+                dict_comments.update(comments_current_page)
         
         except Exception as e:
             print(f"\n--> There was an error crawling in journal {journal}")
@@ -388,20 +385,20 @@ class Altaveu:
             traceback.print_exc()
             print("\n")
         
-        return dict_articles   
+        return dict_articles, dict_comments
     
     def numbered_pages_current_page(self,
                                     journal: str,
                                     url: str,
                                     date_init: datetime,
                                     date_end: datetime,
-                                    already_saved: dict,
                                     term: str):
         # Function used inside scrape_numbered_pages(...)
         # For each numbered page, we'll return a dictionary with all the articles inside the interval
         # We return the variable date_in_interval. If it's False, the loop in scrape_numbered_pages(...) will stop.
         utils.prints('url', url=url)
         dict_articles = {}
+        dict_comments = {}
         date_in_interval = True
         successful_access = True
 
@@ -426,18 +423,23 @@ class Altaveu:
                     link = self.parser.get_link(journal, article)
                     soup = self.static_methods.get_soup(link)
                     date_article = self.parser.get_datetime(journal, article, soup)
-                    if date_article <= date_end:
-                        if date_init <= date_article:
-                            dict_articles = self.add_article.add_article_to_dict(journal,
-                                                                                 article,
-                                                                                 date_article,
-                                                                                 link,
-                                                                                 soup,
-                                                                                 dict_articles,
-                                                                                 already_saved,
-                                                                                 term)
-                        else:
-                            date_in_interval = False
+
+                    article_id = self.add_article.define_article_id(journal, date_article)
+
+                    if not article_id in self.crawler.saved_articles:
+                        if date_article <= date_end:
+                            if date_init <= date_article:
+                                dict_articles, dict_comments = self.add_article.add_article_to_dict(journal,
+                                                                                                    article,
+                                                                                                    article_id,
+                                                                                                    date_article,
+                                                                                                    link,
+                                                                                                    soup,
+                                                                                                    term,
+                                                                                                    dict_articles,
+                                                                                                    dict_comments)
+                            else:
+                                date_in_interval = False
                     i += 1
                 
             except Exception as e:
@@ -449,7 +451,7 @@ class Altaveu:
         else:
             successful_access = False
         
-        return (dict_articles, date_in_interval, successful_access)
+        return (dict_articles, dict_comments, date_in_interval, successful_access)
 
 class Forum:
 
@@ -472,7 +474,6 @@ class Forum:
                         url: str,
                         date_init: datetime,
                         date_end: datetime,
-                        already_saved: dict,
                         term: str) -> dict:
         # Structure to crawl: Numbered pages
         # Type of webpage: Static (We use beautifulsoup)
@@ -481,19 +482,20 @@ class Forum:
         # We add every article (list of attributes) that is inside the desired interval to the dictionary
 
         dict_articles = {}
+        dict_comments = {}
 
         try:
             current_page = 1
             utils.prints('current_page', current_page=current_page)
 
             # We use the function crawl_current_page to obtain the articles from the First page
-            (articles_current_page, date_in_interval, successful_access) = self.numbered_pages_current_page(journal,
-                                                                                                            url,
-                                                                                                            date_init,
-                                                                                                            date_end,
-                                                                                                            already_saved,
-                                                                                                            term)
+            (articles_current_page, comments_current_page, date_in_interval, successful_access) = self.numbered_pages_current_page(journal,
+                                                                                                                                url,
+                                                                                                                                date_init,
+                                                                                                                                date_end,
+                                                                                                                                term)
             dict_articles.update(articles_current_page)
+            dict_comments.update(comments_current_page)
 
             # We loop through the different numbered pages, until the articles are outside the date interval
             while date_in_interval and successful_access:
@@ -502,13 +504,13 @@ class Forum:
                 # We define the next url (next numbered page) thanks to the function numbered_page_url
                 next_url = utils.numbered_page_url(journal, url, self.next_page, current_page)
                 # We get all the new articles from the new numbered page.
-                (articles_current_page, date_in_interval, successful_access) = self.numbered_pages_current_page(journal,
+                (articles_current_page, comments_current_page, date_in_interval, successful_access) = self.numbered_pages_current_page(journal,
                                                                                                                 next_url,
                                                                                                                 date_init,
                                                                                                                 date_end,
-                                                                                                                already_saved,
                                                                                                                 term)
                 dict_articles.update(articles_current_page)
+                dict_comments.update(comments_current_page)
         
         except Exception as e:
             print(f"\n--> There was an error crawling in journal {journal}")
@@ -516,20 +518,20 @@ class Forum:
             traceback.print_exc()
             print("\n")
         
-        return dict_articles   
+        return dict_articles, dict_comments
     
     def numbered_pages_current_page(self,
                                     journal: str,
                                     url: str,
                                     date_init: datetime,
                                     date_end: datetime,
-                                    already_saved: dict,
                                     term: str):
         # Function used inside scrape_numbered_pages(...)
         # For each numbered page, we'll return a dictionary with all the articles inside the interval
         # We return the variable date_in_interval. If it's False, the loop in scrape_numbered_pages(...) will stop.
         utils.prints('url', url=url)
         dict_articles = {}
+        dict_comments = {}
         date_in_interval = True
         successful_access = True
 
@@ -555,17 +557,22 @@ class Forum:
                     if date_article <= date_end:
                         link = self.parser.get_link(journal, article)
                         soup = self.static_methods.get_soup(link)
-                        if date_init <= date_article:
-                            dict_articles = self.add_article.add_article_to_dict(journal,
-                                                                                 article,
-                                                                                 date_article,
-                                                                                 link,
-                                                                                 soup,
-                                                                                 dict_articles,
-                                                                                 already_saved,
-                                                                                 term)
-                        else:
-                            date_in_interval = False
+
+                        article_id = self.add_article.define_article_id(journal, date_article)
+
+                        if not article_id in self.crawler.saved_articles:
+                            if date_init <= date_article:
+                                dict_articles, dict_comments = self.add_article.add_article_to_dict(journal,
+                                                                                    article,
+                                                                                    article_id,
+                                                                                    date_article,
+                                                                                    link,
+                                                                                    soup,
+                                                                                    term,
+                                                                                    dict_articles,
+                                                                                    dict_comments)
+                            else:
+                                date_in_interval = False
                     i += 1
                 
             except Exception as e:
@@ -577,7 +584,7 @@ class Forum:
         else:
             successful_access = False
         
-        return (dict_articles, date_in_interval, successful_access)
+        return (dict_articles, dict_comments, date_in_interval, successful_access)
 
 class Bondia:
 
@@ -603,7 +610,6 @@ class Bondia:
                         url: str,
                         date_init: datetime,
                         date_end: datetime,
-                        already_saved: dict,
                         term: str) -> dict:
         # Structure to crawl: Numbered pages
         # Type of webpage: Static (We use beautifulsoup)
@@ -612,6 +618,7 @@ class Bondia:
         # We add every article (list of attributes) that is inside the desired interval to the dictionary
         utils.prints('url', url=url)
         dict_articles = {}
+        dict_comments = {}
 
         try:
             current_page = 1
@@ -621,13 +628,13 @@ class Bondia:
             self.dynamic_methods.open_url(journal, url)
             tme.sleep(15)
             soup = self.dynamic_methods.get_soup(journal)
-            (articles_current_page, date_in_interval, successful_access) = self.numbered_pages_current_page(journal,
+            (articles_current_page, comments_current_page, date_in_interval, successful_access) = self.numbered_pages_current_page(journal,
                                                                                                             date_init,
                                                                                                             date_end,
                                                                                                             soup,
-                                                                                                            already_saved,
                                                                                                             term)
             dict_articles.update(articles_current_page)
+            dict_comments.update(comments_current_page)
 
             # We loop through the different numbered pages, until the articles are outside the date interval
             while date_in_interval and successful_access and more_articles:
@@ -656,13 +663,13 @@ class Bondia:
                     soup = self.dynamic_methods.get_soup(journal)
 
                     # We get all the new articles from the new numbered page.
-                    (articles_current_page, date_in_interval, successful_access) = self.numbered_pages_current_page(journal,
+                    (articles_current_page, comments_current_page, date_in_interval, successful_access) = self.numbered_pages_current_page(journal,
                                                                                                                 date_init,
                                                                                                                 date_end,
                                                                                                                 soup,
-                                                                                                                already_saved,
                                                                                                                 term)
                     dict_articles.update(articles_current_page)
+                    dict_comments.update(comments_current_page)
         
         except Exception as e:
             print(f"\n--> There was an error crawling in journal {journal}")
@@ -670,20 +677,20 @@ class Bondia:
             traceback.print_exc()
             print("\n")
         
-        return dict_articles
+        return dict_articles, dict_comments
     
     def numbered_pages_current_page(self,
                                     journal: str,
                                     date_init: datetime,
                                     date_end: datetime,
                                     soup: BeautifulSoup,
-                                    already_saved: dict,
                                     term: str):
         # Function used inside scrape_numbered_pages(...)
         # For each numbered page, we'll return a dictionary with all the articles inside the interval
         # We return the variable date_in_interval. If it's False, the loop in scrape_numbered_pages(...) will stop.
         
         dict_articles = {}
+        dict_comments = {}
         date_in_interval = True
         successful_access = True
         
@@ -707,17 +714,22 @@ class Bondia:
                     if date_article <= date_end:
                         link = self.parser.get_link(journal, article)
                         soup = self.static_methods.get_soup(link)
-                        if date_init <= date_article:
-                            dict_articles = self.add_article.add_article_to_dict(journal,
-                                                                                 article,
-                                                                                 date_article,
-                                                                                 link,
-                                                                                 soup,
-                                                                                 dict_articles,
-                                                                                 already_saved,
-                                                                                 term)
-                        else:
-                            date_in_interval = False
+
+                        article_id = self.add_article.define_article_id(journal, date_article)
+
+                        if not article_id in self.crawler.saved_articles:
+                            if date_init <= date_article:
+                                dict_articles, dict_comments = self.add_article.add_article_to_dict(journal,
+                                                                                    article,
+                                                                                    article_id,
+                                                                                    date_article,
+                                                                                    link,
+                                                                                    soup,
+                                                                                    term,
+                                                                                    dict_articles,
+                                                                                    dict_comments)
+                            else:
+                                date_in_interval = False
                     i += 1
                 
             except Exception as e:
@@ -729,7 +741,7 @@ class Bondia:
         else:
             successful_access = False
         
-        return (dict_articles, date_in_interval, successful_access)
+        return (dict_articles, dict_comments, date_in_interval, successful_access)
 
 class Periodic:
 
@@ -751,7 +763,6 @@ class Periodic:
                     url: str,
                     date_init: datetime,
                     date_end: datetime,
-                    already_saved: dict,
                     term: str) -> dict:
         # Structure to crawl: Single page
         # Type of webpage: Static/Dynamic (We use beautifulsoup no navigate, but we need selenium to access the url)
@@ -759,6 +770,7 @@ class Periodic:
         # We add every article (list of attributes) that is inside the desired interval to the dictionary
         utils.prints('url', url=url)
         dict_articles = {}
+        dict_comments = {}
 
         soup = self.dynamic_methods.get_soup(journal, url)
 
@@ -778,20 +790,23 @@ class Periodic:
                     # We get the article's datetime to check if we are inside the interval
                     date_article = self.parser.get_datetime(journal, article)
 
-                    # If the atricle is in the desired interval, we use add_article_to_dict(...) to add it to the dictionary
-                    if date_init <= date_article <= date_end:
-                        # We get the artcle's link to turn into a soup object.
-                        # We'll use soup to get the attributes and content we need from inside the article
-                        link = self.parser.get_link(journal, article)
-                        soup = self.dynamic_methods.get_soup(journal, link)
-                        dict_articles = self.add_article.add_article_to_dict(journal,
-                                                                                article,
-                                                                                date_article,
-                                                                                link,
-                                                                                soup,
-                                                                                dict_articles,
-                                                                                already_saved,
-                                                                                term)
+                    article_id = self.add_article.define_article_id(journal, date_article)
+
+                    if not article_id in self.crawler.saved_articles:
+                        if date_init <= date_article <= date_end:
+                            # We get the artcle's link to turn into a soup object.
+                            # We'll use soup to get the attributes and content we need from inside the article
+                            link = self.parser.get_link(journal, article)
+                            soup = self.dynamic_methods.get_soup(journal, link)
+                            dict_articles, dict_comments = self.add_article.add_article_to_dict(journal,
+                                                                                                article,
+                                                                                                article_id,
+                                                                                                date_article,
+                                                                                                link,
+                                                                                                soup,
+                                                                                                term,
+                                                                                                dict_articles,
+                                                                                                dict_comments)
                     i += 1
             
             except Exception as e:
@@ -800,7 +815,7 @@ class Periodic:
                 traceback.print_exc()
                 print("\n")
         
-        return dict_articles
+        return dict_articles, dict_comments
 
 class Ara:
 
@@ -824,7 +839,6 @@ class Ara:
                         url: str,
                         date_init: datetime,
                         date_end: datetime,
-                        already_saved: dict,
                         term: str) -> dict:
         # Structure to crawl: Load more page
         # Type of webpage: Dynamic (We use Selenium)
@@ -833,6 +847,7 @@ class Ara:
         # articles until we are outside the interval
         utils.prints('url', url=url)
         dict_articles = {}
+        dict_comments = {}
 
         try:
             soup = self.dynamic_methods.get_soup(journal, url)
@@ -849,15 +864,19 @@ class Ara:
                     link = self.parser.get_link(journal, article)
                     soup = self.dynamic_methods.get_soup(journal, link)
                     date_article = self.parser.get_datetime(journal, article, soup)
-                    if date_init <= date_article <= date_end:
-                        dict_articles = self.add_article.add_article_to_dict(journal,
-                                                                                article,
-                                                                                date_article,
-                                                                                link,
-                                                                                soup,
-                                                                                dict_articles,
-                                                                                already_saved,
-                                                                                term)
+
+                    article_id = self.add_article.define_article_id(journal, date_article)
+
+                    if not article_id in self.crawler.saved_articles:
+                        if date_init <= date_article <= date_end:
+                            dict_articles, dict_comments = self.add_article.add_article_to_dict(journal,
+                                                                                                article,
+                                                                                                article_id,
+                                                                                                date_article,
+                                                                                                link,
+                                                                                                soup,
+                                                                                                term,
+                                                                                                dict_articles)
                     j += 1
 
                 # Each time we press the button, the new articles are inside the tag located in next_page_loc.
@@ -892,7 +911,7 @@ class Ara:
             traceback.print_exc()
             print("\n")
 
-        return dict_articles
+        return dict_articles, dict_comments
     
 class Diari:
 
@@ -915,7 +934,6 @@ class Diari:
                         url: str,
                         date_init: datetime,
                         date_end: datetime,
-                        already_saved: dict,
                         term: str) -> dict:
         # Structure to crawl: Numbered pages
         # Type of webpage: Static (We use beautifulsoup)
@@ -924,19 +942,20 @@ class Diari:
         # We add every article (list of attributes) that is inside the desired interval to the dictionary
 
         dict_articles = {}
+        dict_comments = {}
 
         try:
             current_page = 1
             utils.prints('current_page', current_page=current_page)
 
             # We use the function crawl_current_page to obtain the articles from the First page
-            (articles_current_page, date_in_interval, successful_access) = self.numbered_pages_current_page(journal,
+            (articles_current_page, comments_current_page, date_in_interval, successful_access) = self.numbered_pages_current_page(journal,
                                                                                                             url,
                                                                                                             date_init,
                                                                                                             date_end,
-                                                                                                            already_saved,
                                                                                                             term)
             dict_articles.update(articles_current_page)
+            dict_comments.update(comments_current_page)
 
             # We loop through the different numbered pages, until the articles are outside the date interval
             while date_in_interval and successful_access:
@@ -945,13 +964,13 @@ class Diari:
                 # We define the next url (next numbered page) thanks to the function numbered_page_url
                 next_url = utils.numbered_page_url(journal, url, self.next_page, current_page)
                 # We get all the new articles from the new numbered page.
-                (articles_current_page, date_in_interval, successful_access) = self.numbered_pages_current_page(journal,
+                (articles_current_page, comments_current_page, date_in_interval, successful_access) = self.numbered_pages_current_page(journal,
                                                                                                                 next_url,
                                                                                                                 date_init,
                                                                                                                 date_end,
-                                                                                                                already_saved,
                                                                                                                 term)
                 dict_articles.update(articles_current_page)
+                dict_comments.update(comments_current_page)
         
         except Exception as e:
             print(f"\n--> There was an error crawling in journal {journal}")
@@ -959,20 +978,20 @@ class Diari:
             traceback.print_exc()
             print("\n")
         
-        return dict_articles   
+        return dict_articles, dict_comments
     
     def numbered_pages_current_page(self,
                                     journal: str,
                                     url: str,
                                     date_init: datetime,
                                     date_end: datetime,
-                                    already_saved: dict,
                                     term):
         # Function used inside scrape_numbered_pages(...)
         # For each numbered page, we'll return a dictionary with all the articles inside the interval
         # We return the variable date_in_interval. If it's False, the loop in scrape_numbered_pages(...) will stop.
         utils.prints('url', url=url)
         dict_articles = {}
+        dict_comments = {}
         date_in_interval = True
         successful_access = True
 
@@ -995,20 +1014,25 @@ class Diari:
                 while date_init <= date_article and i < len_articles and date_in_interval:
                     article = articles[i]
                     date_article = self.parser.get_datetime(journal, article)
-                    if date_article <= date_end:
-                        link = self.parser.get_link(journal, article)
-                        soup = self.dynamic_methods.get_soup(journal, link)
-                        if date_init <= date_article:
-                            dict_articles = self.add_article.add_article_to_dict(journal,
-                                                                                 article,
-                                                                                 date_article,
-                                                                                 link,
-                                                                                 soup,
-                                                                                 dict_articles,
-                                                                                 already_saved,
-                                                                                 term)
-                        else:
-                            date_in_interval = False
+
+                    article_id = self.add_article.define_article_id(journal, date_article)
+
+                    if not article_id in self.crawler.saved_articles:
+                        if date_article <= date_end:
+                            link = self.parser.get_link(journal, article)
+                            soup = self.dynamic_methods.get_soup(journal, link)
+                            if date_init <= date_article:
+                                dict_articles, dict_comments = self.add_article.add_article_to_dict(journal,
+                                                                                    article,
+                                                                                    article_id,
+                                                                                    date_article,
+                                                                                    link,
+                                                                                    soup,
+                                                                                    term,
+                                                                                    dict_articles,
+                                                                                    dict_comments)
+                            else:
+                                date_in_interval = False
                     i += 1
                 
             except Exception as e:
@@ -1020,7 +1044,7 @@ class Diari:
         else:
             successful_access = False
         
-        return (dict_articles, date_in_interval, successful_access)
+        return (dict_articles, dict_comments, date_in_interval, successful_access)
     
 """ -- THE MAIN SCRAPER --"""
 class Scraper:
@@ -1082,62 +1106,74 @@ class Scraper:
     def scrape(self, journal: str) -> dict:
 
         result = {}
+        result_comments = {}
 
         self.crawler.cookies_clicked = False
         self.crawler.notifs_clicked = False
 
         for term in self.crawler.search_terms:
             utils.prints('term', term=term)
-            already_saved = result
+            # already_saved = result
             url = self.word_to_url(journal, term)
 
             match journal:
                 case 'altaveu':
                     # numbered_pages (dynamic comments)
-                    result.update(Altaveu(self.crawler).numbered_pages(journal,
-                                                                        url,
-                                                                        self.crawler.date_init,
-                                                                        self.crawler.date_end,
-                                                                        already_saved,
-                                                                        term))
+                    articles, comments = Altaveu(self.crawler).numbered_pages(journal,
+                                                                                url,
+                                                                                self.crawler.date_init,
+                                                                                self.crawler.date_end,
+                                                                                term)
+                    result.update(articles)
+                    result_comments.update(comments)
+
                 case 'forum':
                     # numbered_pages
-                    result.update(Forum(self.crawler).numbered_pages(journal,
-                                                                        url,
-                                                                        self.crawler.date_init,
-                                                                        self.crawler.date_end,
-                                                                        already_saved,
-                                                                        term))
+                    articles, comments = Forum(self.crawler).numbered_pages(journal,
+                                                                                url,
+                                                                                self.crawler.date_init,
+                                                                                self.crawler.date_end,
+                                                                                term)
+                    result.update(articles)
+                    result_comments.update(comments)
+
                 case 'bondia':
-                    result.update(Bondia(self.crawler).numbered_pages(journal,
-                                                                url,
-                                                                self.crawler.date_init,
-                                                                self.crawler.date_end,
-                                                                already_saved,
-                                                                term))
+                    articles, comments = Bondia(self.crawler).numbered_pages(journal,
+                                                                                url,
+                                                                                self.crawler.date_init,
+                                                                                self.crawler.date_end,
+                                                                                term)
+                    result.update(articles)
+                    result_comments.update(comments)
+
                 case 'periodic':
                     # single_page 
-                    result.update(Periodic(self.crawler).single_page(journal,
-                                                                url,
-                                                                self.crawler.date_init,
-                                                                self.crawler.date_end,
-                                                                already_saved,
-                                                                term))
+                    articles, comments = Periodic(self.crawler).single_page(journal,
+                                                                            url,
+                                                                            self.crawler.date_init,
+                                                                            self.crawler.date_end,
+                                                                            term)
+                    result.update(articles)
+                    result_comments.update(comments)
+
                 case 'ara':
                     # load_more_page
-                    result.update(Ara(self.crawler).load_more_page(journal,
-                                                                url,
-                                                                self.crawler.date_init,
-                                                                self.crawler.date_end,
-                                                                already_saved,
-                                                                term))
+                    articles, comments = Ara(self.crawler).load_more_page(journal,
+                                                                                url,
+                                                                                self.crawler.date_init,
+                                                                                self.crawler.date_end,
+                                                                                term)
+                    result.update(articles)
+                    result_comments.update(comments)
+
                 case 'diari':
                     # next_page
-                    result.update(Diari(self.crawler).numbered_pages(journal,
-                                                                url,
-                                                                self.crawler.date_init,
-                                                                self.crawler.date_end,
-                                                                already_saved,
-                                                                term))
+                    articles, comments = Diari(self.crawler).numbered_pages(journal,
+                                                                                url,
+                                                                                self.crawler.date_init,
+                                                                                self.crawler.date_end,
+                                                                                term)
+                    result.update(articles)
+                    result_comments.update(comments)
 
-        return result
+        return result, result_comments

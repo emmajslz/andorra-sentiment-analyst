@@ -285,6 +285,8 @@ class Parser:
                 likes = ""
                 dislikes = ""
 
+        content = re.sub('\n', ' ', content)
+
         return [comment_id, author, og_date_time, date_time, content, in_answer_to, likes, dislikes]
     
     def get_parent_id(self, journal, comment):

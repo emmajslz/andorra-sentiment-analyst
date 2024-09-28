@@ -22,10 +22,10 @@ class Input:
     def __init__(self, today: date, now: datetime):
 
         self.path_to_chromedriver_loc = 'crawler/path_to_chromedriver.txt'
-        self.path_to_sources = 'data/sources.csv'
+        self.path_to_sources = 'crawler/sources.csv'
         self.path_to_sources_out_of_order = 'crawler/sources_out_of_order.txt'
-        self.path_to_search_terms = 'data/search_terms.csv'
-        self.path_to_sources_elements= 'data/sources_elements.csv'
+        self.path_to_search_terms = 'crawler/search_terms.csv'
+        self.path_to_sources_elements= 'crawler/sources_elements.csv'
 
         self.NOW = now
         self.TODAY = today
@@ -90,8 +90,11 @@ class Output:
 
     def __init__(self, search_name):
 
-        self.path = 'data/scraping_results/'
+        self.path = 'data/'
         self.search_name = search_name
+
+        self.articles_path = 'data/articles/'
+
         self.filepath = f"{self.path}{self.define_filename()}"
         self.headers = [
             "datetime_added",
@@ -102,7 +105,12 @@ class Output:
             "type",
             "title",
             "link",
-            "comment_id",
+            "nb_of_comments"
+        ]
+
+        self.comments_filepath = f"{self.path}{self.define_comments_filename()}"
+        self.comments_headers = [
+            "article_id",
             "comment_author",
             "comment_datetime_displayed",
             "comment_datetime",
@@ -111,12 +119,14 @@ class Output:
             "comment_likes",
             "comment_dislikes"
         ]
-        self.articles_path = 'data/scraping_results/articles/'
 
         self.check_filepath()
 
     def define_filename(self) -> str:
-        return f"{datetime.now().strftime('%Y%m%d')}_{self.search_name}_results"
+        return f"{datetime.now().strftime('%Y%m%d')}_{self.search_name}_articles"
+    
+    def define_comments_filename(self) -> str:
+        return f"{datetime.now().strftime('%Y%m%d')}_{self.search_name}_comments"
 
     def check_filepath(self) -> None:
 
@@ -138,6 +148,14 @@ class Output:
             if override == 'n':
                 self.filepath = self.filepath + '_copy'
                 self.check_filepath()
+      
+        if os.path.exists(f"{self.comments_filepath}.csv"):
+            print(f"File {self.comments_filepath}.csv already exists.\nWould you like to override it? [y/n]")
+            override = input()
+            if override == 'n':
+                self.comments_filepath = self.comments_filepath + '_copy'
+                self.check_filepath()
+        
 
     def store_results(self, results: dict) -> None:
         # We export the data and either append it to existing file or create a new one
@@ -147,7 +165,15 @@ class Output:
 
         data_frame.to_csv(f"{self.filepath}.csv", index_label="id", sep=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
         print(f"Resulting dataset stored as -> {self.filepath}.csv")
-        data_frame.to_excel(f"{self.filepath}.xlsx", index_label="id")
+        # data_frame.to_excel(f"{self.filepath}.xlsx", index_label="id")
+
+    def store_comments(self, comments: dict) -> None:
+        
+        comments_data_frame = pd.DataFrame.from_dict(comments, orient="index", columns=self.comments_headers)
+
+        comments_data_frame.to_csv(f"{self.comments_filepath}.csv", index_label="comment_id", sep=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        print(f"Resulting comments dataset stored as -> {self.comments_filepath}.csv")
+        # comments_data_frame.to_excel(f"{self.comments_filepath}.xlsx", index_label="comment_id")
 
     def store_article(self, id: str, title: str, subtitle: str, content: str) -> None:
 
@@ -185,6 +211,9 @@ class Crawler:
         self.NOW = now
         self.output = output_instance
         self.headless = headless
+        
+        self.saved_articles = set()
+        self.saved_comments = set()
 
         self.scraper = scraper.Scraper(self)
 
@@ -217,7 +246,8 @@ class Crawler:
 
         self.driver = self.setup_driver()
 
-        results = {}
+        result_articles = {}
+        result_comments = {}
 
         for journal in self.sources:
             utils.prints('searching', journal=journal)
@@ -225,11 +255,13 @@ class Crawler:
                 utils.prints('out_of_order', journal=journal)
             else:
                 # Use the methods in Scraper to search the for the articles!!!
-                results.update(self.scraper.scrape(journal))
+                articles, comments = self.scraper.scrape(journal)
+                result_articles.update(articles)
+                result_comments.update(comments)
 
         self.shutdown_driver()
 
-        return results
+        return result_articles, result_comments 
 
 def main():
 
@@ -259,12 +291,17 @@ def main():
                       output,
                       headless=True)
     
-    results = crawler.crawl()
+    articles, comments = crawler.crawl()
 
-    if results:
-        output.store_results(results)
+    if articles:
+        output.store_results(articles)
     else:
         utils.prints('no_results')
+
+    if comments:
+        output.store_comments(comments)
+    else:
+        utils.prints('no_comments')
     
 if __name__ == "__main__":
     main()
