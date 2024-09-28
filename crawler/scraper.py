@@ -142,33 +142,33 @@ class Comments:
     def get_comments(self, journal, url, soup):
         # Depending on the journal, we use a method or another to get the comment_list
 
-        if journal == "altaveu":
-            # Comments are loaded dynamically, so we get them with Selenium
-            self.dynamic_methods.open_url(journal, url)
-            # We load all comments
-            self.load_all_comments(journal)
-            # We create a BeautifulSoup object with the current page_source
-            soup = BeautifulSoup(self.crawler.driver.page_source, 'html.parser')
-            return self.get_comments_soup(journal, soup)
+        match journal:
+            case 'altaveu':
+                # Comments are loaded dynamically, so we get them with Selenium
+                self.dynamic_methods.open_url(journal, url)
+                tme.sleep(1)
+                # We load all comments
+                self.load_all_comments(journal)
+                # We create a BeautifulSoup object with the current page_source
+                soup = BeautifulSoup(self.crawler.driver.page_source, 'html.parser')
+                return self.get_comments_soup(journal, soup)
 
-        elif journal == "diari":
-            # Because we are already using Selenium to get the articles, we need to open a different window to get the
-            # article's comments, as to keep the current window intact and be able to keep using it.
-            self.dynamic_methods.url_in_second_window('open', url)
-            # We load all comments
-            self.load_all_comments(journal)
-            # We create a BeautifulSoup object with the current page_source
-            soup = BeautifulSoup(self.crawler.driver.page_source, 'html.parser')
-            return self.get_comments_soup(journal, soup, second_window=True)
+            case 'diari':
+                # Because we are already using Selenium to get the articles, we need to open a different window to get the
+                # article's comments, as to keep the current window intact and be able to keep using it.
+                self.dynamic_methods.url_in_second_window('open', url)
+                # We load all comments
+                self.load_all_comments(journal)
+                # We create a BeautifulSoup object with the current page_source
+                soup = BeautifulSoup(self.crawler.driver.page_source, 'html.parser')
+                return self.get_comments_soup(journal, soup, second_window=True)
 
-        elif journal == "bondia":
-            # As the comments in this journal are not loaded dynamically, we can directly use the current soup object
-            # to get the comment_list
-            return self.get_comments_soup(journal, soup)
+            case 'bondia':
+                return self.get_comments_soup(journal, soup)
 
-        else:
-            # If we are not in a journal that has comments, we return an empty list
-            return []
+            case _:
+                # If we are not in a journal that has comments, we return an empty list
+                return []
         
     def get_comments_soup(self, journal, soup, second_window=False):
         # Once we have the soup, we can create a list of lists with all the comment attributes
@@ -185,7 +185,8 @@ class Comments:
             else:
                 comments = []
         elif journal == "bondia":
-            comments = soup.find_all('div', attrs={'class': re.compile("comment.*"), 'typeof': "sioc:Post sioct:Comment"})
+            comments_col = soup.find('div', class_="col-span-4 pt-2")
+            comments = comments_col.find_all('div', class_="flex flex-col gap-2 bg-primary-200 py-4 px-10")
 
         len_comments = len(comments)
 
@@ -194,7 +195,7 @@ class Comments:
         # We append each list of attributes to comment_list, creating a list of lists with all the comments.
         for i in range(0, len_comments):
             comment = comments[i]
-            attributes = self.parser.get_comment_attributes(journal, comment)
+            attributes = self.parser.get_comment_attributes(journal, comment, i)
             comment_list.append(attributes)
 
         # If we have used a second window to look at the comments, we close it

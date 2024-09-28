@@ -173,17 +173,11 @@ class Parser:
         # We define the location of the content in a dictionary, in the form:
         # tags = {journal : [[loc_subtitle], [loc_content]]}
 
-        locs = {'altaveu':  [['h2', 'class', "c-mainarticle__subtitle"],
-                            ['div', 'class', "c-mainarticle__body"]],
-
-                'periodic': [['h2', 'class', "noticia-header__subtitle"],
+        locs = {'periodic': [['h2', 'class', "noticia-header__subtitle"],
                             ['div', 'class', "noticia-main__content"]],
 
                 'ara':      [['h2', 'class', "subtitle"],
                             ['div', 'class', "ara-body"]],
-
-                'bondia':   [[],
-                             ['div', 'property', re.compile(".*content:encoded")]],
 
                 'diari':    [['p', 'class', "c-detail__subtitle"],
                             ['div', 'class', "c-detail__body"]],
@@ -195,95 +189,101 @@ class Parser:
         content = ""
 
         # Subtitle:
-        match journal:
-            case 'bondia':
-                subtitle = soup.find('p', attrs={'class': "text-2xl"}).text
-            case _:
-                if locs[journal][0]:
-                    if soup.find(locs[journal][0][0], attrs={locs[journal][0][1]: locs[journal][0][2]}):
-                        subtitle = soup.find(locs[journal][0][0], attrs={locs[journal][0][1]: locs[journal][0][2]}).text
+        try:
+            match journal:
+                case 'altaveu':
+                    subtitle = soup.find('h2', class_="c-mainarticle__subtitle").text
+                case 'bondia':
+                    subtitle = soup.find('p', class_="text-2xl").text
+                case _:
+                    if locs[journal][0]:
+                        if soup.find(locs[journal][0][0], attrs={locs[journal][0][1]: locs[journal][0][2]}):
+                            subtitle = soup.find(locs[journal][0][0], attrs={locs[journal][0][1]: locs[journal][0][2]}).text
+        except:
+            print(f"! no subtitle found")
 
         # Content:
-        match journal:
-            case 'altaveu':
-                opening = ""
-                if soup.find('div', class_="c-mainarticle__opening"):
-                    # In l'Altaveu, we have to first find the opening in case there's one, as that is part of the content of the article
-                    opening = soup.find('div', class_="c-mainarticle__opening").text
-                paragraphs = soup.find('div', class_="c-detail__body").find_all('p')
-                content = opening + '\n'.join([par.text for par in paragraphs])
-            
-            case 'bondia':
-                paragraphs = soup.find('div', class_="article-body my-5 text-lg").div.find_all('p')
-                content = '\n'.join([par.text for par in paragraphs])
+        try:
+            match journal:
+                case 'altaveu':
+                    opening = ""
+                    if soup.find('div', class_="c-mainarticle__opening"):
+                        # In l'Altaveu, we have to first find the opening in case there's one, as that is part of the content of the article
+                        opening = soup.find('div', class_="c-mainarticle__opening").text
+                    paragraphs = soup.find('div', class_="c-mainarticle__body").find_all('p')
+                    content = opening + '\n'.join([par.text for par in paragraphs if not par.section])
+                
+                case 'bondia':
+                    paragraphs = soup.find('div', class_="article-body my-5 text-lg").find_all('p')
+                    content = '\n'.join([par.text for par in paragraphs])
 
-            case 'diari':
-                paragraphs = soup.find('div', class_="c-detail__body").find_all('p', class_="paragraph")
-                content = '\n'.join([par.text for par in paragraphs])
+                case 'diari':
+                    paragraphs = soup.find('div', class_="c-detail__body").find_all('p', class_="paragraph")
+                    content = '\n'.join([par.text for par in paragraphs])
 
-            case _:
-                content = soup.find(locs[journal][1][0], attrs={locs[journal][1][1]: locs[journal][1][2]}).text.strip()
+                case _:
+                    content = soup.find(locs[journal][1][0], attrs={locs[journal][1][1]: locs[journal][1][2]}).text.strip()
+        except:
+            print(f"! no content found")
 
-        return subtitle, content
+        return subtitle.strip(), content.strip()
 
     def get_subtitle(self, journal: str, soup: BeautifulSoup) -> str:
 
         return 0
     
     # -- Comments ------------------------
-    def get_comment_attributes(self, journal, comment):
+    def get_comment_attributes(self, journal, comment, i=None):
         # For each comment, we look for the desired attributes and return them as a list
 
         # We define the date_formats we'll have to pass as arguments to the string_to_datetime(...) function
         date_format = {'altaveu': "Fa x",
-                    'diari': "(%d/%m/%y %H:%M)",
-                    'bondia': "%Y-%m-%dT%H:%M:%S"}
+                       'diari': "(%d/%m/%y %H:%M)",
+                       'bondia': "%Y-%m-%dT%H:%M:%S"}
 
-        if journal == "altaveu":
+        match journal:
+            case 'altaveu':
 
-            comment_id = int(comment.find(
-                'div', class_="comment_buttons").find('a', class_="valuation up like")["data-comment-vote"])
-            author  = comment.find('div', class_="comment_info").strong.string
-            og_date_time = comment.find('div', class_="comment_info").small.string
-            # We pass formatted=False because the date cannot be parsed with strptime(..)
-            # We pass multiple_formats=False because there are no multiple date formats to test
-            date_time = utils.string_to_datetime(og_date_time, date_format[journal], formatted=False, multiple_formats=False)
-            # We use .strip() to avoid unnecessary spaces at the beggining and end of the string
-            content = comment.find('div', class_="comment_text").string.strip()
-            in_answer_to = self.get_parent_id(journal, comment)
-            likes = int(comment.find('div', class_="comment_buttons").find('a', class_="valuation up like").string)
-            dislikes = int(comment.find('div', class_="comment_buttons").find('a', class_="valuation down dislike").string)
+                comment_id = int(comment.find(
+                    'div', class_="comment_buttons").find('a', class_="valuation up like")["data-comment-vote"])
+                author  = comment.find('div', class_="comment_info").strong.string
+                og_date_time = comment.find('div', class_="comment_info").small.string
+                # We pass formatted=False because the date cannot be parsed with strptime(..)
+                # We pass multiple_formats=False because there are no multiple date formats to test
+                date_time = utils.string_to_datetime(og_date_time, date_format[journal], formatted=False, multiple_formats=False)
+                # We use .strip() to avoid unnecessary spaces at the beggining and end of the string
+                content = comment.find('div', class_="comment_text").string.strip()
+                in_answer_to = self.get_parent_id(journal, comment)
+                likes = int(comment.find('div', class_="comment_buttons").find('a', class_="valuation up like").string)
+                dislikes = int(comment.find('div', class_="comment_buttons").find('a', class_="valuation down dislike").string)
 
-        elif journal == "diari":
+            case 'diari':
 
-            comment_id = int(comment.find('div', class_="comment").p['id'].split('-')[1])
-            author = comment.find('p', class_="author").strong.string
-            og_date_time = comment.find('p', class_="author").em.string
-            # We pass formatted=True because the date can be parsed with strptime(..)
-            # We pass multiple_formats=False because there are no multiple date formats to test
-            date_time = utils.string_to_datetime(og_date_time, date_format[journal], formatted=True, multiple_formats=False)
-            # In this case, the content can also have the parent comment in it. Because we do not want this, we use
-            # .split('\n') and we choose the last element of the list to only obtain the current comment's content
-            content = comment.find('div', class_="comment").p.span.text.strip().split('\n')
-            content = content[len(content) - 1].strip()
-            in_answer_to = self.get_parent_id(journal, comment)
-            # We leave likes and dislikes as blank because these attributes do not exist in this journal
-            likes = ""
-            dislikes = ""
+                comment_id = int(comment.find('div', class_="comment").p['id'].split('-')[1])
+                author = comment.find('p', class_="author").strong.string
+                og_date_time = comment.find('p', class_="author").em.string
+                # We pass formatted=True because the date can be parsed with strptime(..)
+                # We pass multiple_formats=False because there are no multiple date formats to test
+                date_time = utils.string_to_datetime(og_date_time, date_format[journal], formatted=True, multiple_formats=False)
+                # In this case, the content can also have the parent comment in it. Because we do not want this, we use
+                # .split('\n') and we choose the last element of the list to only obtain the current comment's content
+                content = comment.find('div', class_="comment").p.span.text.strip().split('\n')
+                content = content[len(content) - 1].strip()
+                in_answer_to = self.get_parent_id(journal, comment)
+                # We leave likes and dislikes as blank because these attributes do not exist in this journal
+                likes = ""
+                dislikes = ""
 
-        elif journal == "bondia":
+            case 'bondia':
 
-            comment_id = int(comment['about'].split('/')[2].split('#')[0])
-            author = comment.find('span', class_="username").string
-            og_date_time = comment.find('span', attrs={'property': "dc:date dc:created"})['content'].split('+')[0]
-            # We pass formatted=True because the date can be parsed with strptime(..)
-            # We pass multiple_formats=False because there are no multiple date formats to test
-            date_time = utils.string_to_datetime(og_date_time, date_format[journal], formatted=True, multiple_formats=False)
-            content = comment.find('div', attrs={'property': "content:encoded"}).text.strip()
-            in_answer_to = self.get_parent_id(journal, comment)
-            # We leave likes and dislikes as blank because these attributes do not exist in this journal
-            likes = ""
-            dislikes = ""
+                comment_id = i
+                author = comment.div.text
+                content = comment.find_all('div')[1].text
+                og_date_time = ""
+                date_time = ""
+                in_answer_to = ""
+                likes = ""
+                dislikes = ""
 
         return [comment_id, author, og_date_time, date_time, content, in_answer_to, likes, dislikes]
     
