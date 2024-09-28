@@ -166,41 +166,9 @@ class Parser:
             case 'ara':
                 return soup.find('meta', attrs={'property': "article:modified_time"})['content'].split('+')[0]
 
-    def get_content(self, journal, soup):
-        # We look for the content of the article and the subtitle in case it has one.
-        # only altaveu, periodic, and ara have subtitle
+    def get_content(self, journal: str, soup: BeautifulSoup) -> str:
 
-        # We define the location of the content in a dictionary, in the form:
-        # tags = {journal : [[loc_subtitle], [loc_content]]}
-
-        locs = {'periodic': [['h2', 'class', "noticia-header__subtitle"],
-                            ['div', 'class', "noticia-main__content"]],
-
-                'ara':      [['h2', 'class', "subtitle"],
-                            ['div', 'class', "ara-body"]],
-
-                'diari':    [['p', 'class', "c-detail__subtitle"],
-                            ['div', 'class', "c-detail__body"]],
-
-                'forum':    [[],
-                            ['div', 'class', "entry-the-content"]]}
-
-        subtitle = ""
         content = ""
-
-        # Subtitle:
-        try:
-            match journal:
-                case 'altaveu':
-                    subtitle = soup.find('h2', class_="c-mainarticle__subtitle").text
-                case 'bondia':
-                    subtitle = soup.find('p', class_="text-2xl").text
-                case _:
-                    if locs[journal][0]:
-                        if soup.find(locs[journal][0][0], attrs={locs[journal][0][1]: locs[journal][0][2]}):
-                            subtitle = soup.find(locs[journal][0][0], attrs={locs[journal][0][1]: locs[journal][0][2]}).text
-        except:
-            print(f"! no subtitle found")
 
         # Content:
         try:
@@ -212,25 +180,50 @@ class Parser:
                         opening = soup.find('div', class_="c-mainarticle__opening").text
                     paragraphs = soup.find('div', class_="c-mainarticle__body").find_all('p')
                     content = opening + '\n'.join([par.text for par in paragraphs if not par.section])
+
+                case 'forum':
+                    content = soup.find('div', class_="entry-the-content")
                 
                 case 'bondia':
                     paragraphs = soup.find('div', class_="article-body my-5 text-lg").find_all('p')
                     content = '\n'.join([par.text for par in paragraphs])
 
+                case 'periodic':
+                    content = soup.find('div', class_="oticia-main__content")
+
+                case 'ara':
+                    content = soup.find('div', class_="ara-body")
+
                 case 'diari':
                     paragraphs = soup.find('div', class_="c-detail__body").find_all('p', class_="paragraph")
                     content = '\n'.join([par.text for par in paragraphs])
 
-                case _:
-                    content = soup.find(locs[journal][1][0], attrs={locs[journal][1][1]: locs[journal][1][2]}).text.strip()
         except:
             print(f"! no content found")
 
-        return subtitle.strip(), content.strip()
+        return content.strip()
 
     def get_subtitle(self, journal: str, soup: BeautifulSoup) -> str:
 
-        return 0
+        subtitle = ""
+
+        try:
+            match journal:
+                case 'altaveu':
+                    subtitle = soup.find('h2', class_="c-mainarticle__subtitle").text.strip()
+                case 'bondia':
+                    subtitle = soup.find('p', class_="text-2xl").text.strip()
+                case 'periodic':
+                    subtitle = soup.find('h2', class_="noticia-header__subtitle").text.strip()
+                case 'ara':
+                    subtitle = soup.find('h2', class_="subtitle").text.strip()
+                case 'diari':
+                    subtitle = soup.find('p', class_="c-detail__subtitle").text.strip()
+
+        except:
+            print(f"! no subtitle found")
+
+        return subtitle
     
     # -- Comments ------------------------
     def get_comment_attributes(self, journal, comment, i=None):
@@ -238,8 +231,11 @@ class Parser:
 
         # We define the date_formats we'll have to pass as arguments to the string_to_datetime(...) function
         date_format = {'altaveu': "Fa x",
-                       'diari': "(%d/%m/%y %H:%M)",
+                       'diari': "%m/%d/%Y, %I:%M:%S %p",
                        'bondia': "%Y-%m-%dT%H:%M:%S"}
+        
+        likes = ""
+        dislikes = ""
 
         match journal:
             case 'altaveu':
@@ -259,20 +255,17 @@ class Parser:
 
             case 'diari':
 
-                comment_id = int(comment.find('div', class_="comment").p['id'].split('-')[1])
-                author = comment.find('p', class_="author").strong.string
-                og_date_time = comment.find('p', class_="author").em.string
+                comment_id = comment.find_all('div', class_="comment-meta-left-2")[0].a['href'].split('comment-id=')[1]
+                author = comment.find_all('span', class_="user-name")[0].text
+                og_date_time = comment.find_all('time')[0]['datetime']
+
                 # We pass formatted=True because the date can be parsed with strptime(..)
                 # We pass multiple_formats=False because there are no multiple date formats to test
                 date_time = utils.string_to_datetime(og_date_time, date_format[journal], formatted=True, multiple_formats=False)
-                # In this case, the content can also have the parent comment in it. Because we do not want this, we use
-                # .split('\n') and we choose the last element of the list to only obtain the current comment's content
-                content = comment.find('div', class_="comment").p.span.text.strip().split('\n')
-                content = content[len(content) - 1].strip()
+
+                content = comment.find_all('div', class_="comment-content")[0].div.p.text
                 in_answer_to = self.get_parent_id(journal, comment)
-                # We leave likes and dislikes as blank because these attributes do not exist in this journal
-                likes = ""
-                dislikes = ""
+
 
             case 'bondia':
 
@@ -282,8 +275,6 @@ class Parser:
                 og_date_time = ""
                 date_time = ""
                 in_answer_to = ""
-                likes = ""
-                dislikes = ""
 
         content = re.sub('\n', ' ', content)
 
@@ -293,33 +284,36 @@ class Parser:
         # For each comment, this function will determine if it's a child comment (in answer to another comment)
         # and return the parent comment's ID. In case it isn't, we'll return ""
 
-        if journal == "altaveu":
+        match journal:
+            case 'altaveu':
 
-            parent_element = comment.parent
+                parent_element = comment.parent
 
-            # The comment is a child comment if the parent_element['class'] is "children"
-            if parent_element['class'] == "children":
-                parent_comment = parent_element.parent
-                return int(parent_comment.find(
-                    'div', class_="comment_buttons").find('a', class_="valuation up like")['data-comment-vote'])
-            else:
-                return ""
+                # The comment is a child comment if the parent_element['class'] is "children"
+                if parent_element['class'] == "children":
+                    parent_comment = parent_element.parent
+                    return int(parent_comment.find(
+                        'div', class_="comment_buttons").find('a', class_="valuation up like")['data-comment-vote'])
+                else:
+                    return ""
 
-        if journal == "diari":
+            case 'diari':
+                reply = comment.parent.parent
+                # The comment is a child comment if it has a tag <a class="ancla-referencia">
+                if reply.get('class', ['-'])[0] == "comment-replies":
+                    parent_comment = reply.parent
+                    parent_comment_id = parent_comment.find_all('div', class_="comment-meta-left-2")[0].a['href'].split('comment-id=')[1]
+                    return parent_comment_id
+                else:
+                    return ""
 
-            # The comment is a child comment if it has a tag <a class="ancla-referencia">
-            if comment.find_all('a', class_="ancla_referencia"):
-                return int(comment.find('a', class_="ancla_referencia")['onmouseover'].split('(')[1].split(',')[0])
-            else:
-                return ""
+            case 'bondia':
 
-        if journal == "bondia":
+                parent_element = comment.parent
 
-            parent_element = comment.parent
-
-            # The comment is a child comment if the parent_element['class'] starts with 'indented' (first element on list)
-            if parent_element['class'][0] == 'indented':
-                return int(comment.find(
-                    'span', attrs={'resource': re.compile("/comment.*")})['resource'].split('/')[2].split('#')[0])
-            else:
-                return ""
+                # The comment is a child comment if the parent_element['class'] starts with 'indented' (first element on list)
+                if parent_element['class'][0] == 'indented':
+                    return int(comment.find(
+                        'span', attrs={'resource': re.compile("/comment.*")})['resource'].split('/')[2].split('#')[0])
+                else:
+                    return ""

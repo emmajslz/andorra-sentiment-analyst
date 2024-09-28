@@ -156,7 +156,6 @@ class Output:
                 self.comments_filepath = self.comments_filepath + '_copy'
                 self.check_filepath()
         
-
     def store_results(self, results: dict) -> None:
         # We export the data and either append it to existing file or create a new one
         # We create a pandas DataFrame from the dicitonary will all the information
@@ -265,6 +264,8 @@ class Crawler:
 
 def main():
 
+    start_time = tme.time()
+
     today = date.today()
     now = datetime.now()
 
@@ -289,7 +290,7 @@ def main():
                       today,
                       now,
                       output,
-                      headless=True)
+                      headless=False)
     
     articles, comments = crawler.crawl()
 
@@ -302,6 +303,8 @@ def main():
         output.store_comments(comments)
     else:
         utils.prints('no_comments')
+
+    print(f"\nTotal execution time: {tme.time() - start_time:.3f}")
     
 if __name__ == "__main__":
     main()

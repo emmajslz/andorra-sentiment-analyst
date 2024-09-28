@@ -47,8 +47,7 @@ class AddArticle:
         # For each article, we use this function to determine wether or not it should be added to the dictionary,
         # get all the attributes we want, all the comments in the article (if there are any) and append all of
         # the information to the dictionary.
-        # Because we look in different places, we use the already_saved argument. We pass the already existing dictionary
-        # and only add the article to the current dictionary if it isn't already in already_saved.
+
         if soup:
 
             # We get all the attributes we don't already have
@@ -59,9 +58,9 @@ class AddArticle:
             utils.prints('article', date_article=date_article, title=title)
 
             # We get the content in the article
-            subtitle, content = self.parser.get_content(journal, soup)
+            content = self.parser.get_content(journal, soup)
+            subtitle = self.parser.get_subtitle(journal, soup)
             self.crawler.output.store_article(article_id, title, subtitle, content)
-            
 
             # We get all the comments in the article with the get_comments(...) function. If there are none,
             # get_comments(...) will return an empty list.
@@ -151,14 +150,19 @@ class Comments:
                 return self.get_comments_soup(journal, soup)
 
             case 'diari':
-                # Because we are already using Selenium to get the articles, we need to open a different window to get the
-                # article's comments, as to keep the current window intact and be able to keep using it.
-                self.dynamic_methods.url_in_second_window('open', url)
-                # We load all comments
-                self.load_all_comments(journal)
-                # We create a BeautifulSoup object with the current page_source
-                soup = BeautifulSoup(self.crawler.driver.page_source, 'html.parser')
-                return self.get_comments_soup(journal, soup, second_window=True)
+                self.dynamic_methods.open_url(journal, url)
+                tme.sleep(1)
+                shadow_host = self.crawler.driver.find_element(By.CSS_SELECTOR, "hyvor-talk-comments")
+                print(shadow_host)
+                # Use JavaScript to extract the shadow root's inner HTML
+                shadow_dom_html = self.crawler.driver.execute_script("""
+                    // Access the shadow root and return its inner HTML
+                    return arguments[0].shadowRoot.innerHTML;
+                """, shadow_host)
+
+                # Create a BeautifulSoup object with the extracted shadow DOM HTML
+                soup = BeautifulSoup(shadow_dom_html, "html.parser")
+                return self.get_comments_soup(journal, soup)
 
             case 'bondia':
                 return self.get_comments_soup(journal, soup)
@@ -174,17 +178,19 @@ class Comments:
         comment_list = []
 
         # We get the list of all the comments
-        if journal == "altaveu":
-            comments = soup.find_all('div', attrs={"data-type": "comment"})
-        elif journal == "diari":
-            if soup.find_all('div', class_="lst-com con brr"):
-                comments = soup.find('div', class_="lst-com con brr").ul.find_all('li', class_=re.compile("con.*"))
-            else:
-                comments = []
-        elif journal == "bondia":
-            comments_col = soup.find('div', class_="col-span-4 pt-2")
-            comments = comments_col.find_all('div', class_="flex flex-col gap-2 bg-primary-200 py-4 px-10")
+        match journal:
+            case 'altaveu':
+                comments = soup.find_all('div', attrs={"data-type": "comment"})
 
+            case 'diari':
+                comments = soup.find_all('div', class_="comment")
+
+            case 'bondia':
+                comments_col = soup.find('div', class_="col-span-4 pt-2")
+                comments = comments_col.find_all('div', class_="flex flex-col gap-2 bg-primary-200 py-4 px-10")
+
+        if not comments:
+            comments = []
         len_comments = len(comments)
 
         # We loop through the list
@@ -876,7 +882,8 @@ class Ara:
                                                                                                 link,
                                                                                                 soup,
                                                                                                 term,
-                                                                                                dict_articles)
+                                                                                                dict_articles,
+                                                                                                dict_comments)
                     j += 1
 
                 # Each time we press the button, the new articles are inside the tag located in next_page_loc.
@@ -1020,7 +1027,7 @@ class Diari:
                     if not article_id in self.crawler.saved_articles:
                         if date_article <= date_end:
                             link = self.parser.get_link(journal, article)
-                            soup = self.dynamic_methods.get_soup(journal, link)
+                            soup = self.static_methods.get_soup(link)
                             if date_init <= date_article:
                                 dict_articles, dict_comments = self.add_article.add_article_to_dict(journal,
                                                                                     article,
