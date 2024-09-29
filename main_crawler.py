@@ -344,7 +344,7 @@ def main():
     else:
         utils.prints('no_comments')
 
-    print(f"\nTotal execution time: {tme.time() - start_time:.3f}")
+    print(f"\nTotal execution time: {tme.time() - start_time:.3f}({(tme.time() - start_time)/60:.3f} minutes)")
     
 if __name__ == "__main__":
     main()
