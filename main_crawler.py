@@ -19,9 +19,13 @@ from crawler import utils, scraper
 
 class Input:
     
-    def __init__(self, today: date, now: datetime):
+    def __init__(self, today: date, now: datetime, path: str = None):
 
-        self.path_to_input = self.get_args_input_path()
+        if path:
+            self.path_to_input = path
+        else:
+            self.path_to_input = self.get_args_input_path()
+            
         self.path_to_sources = f"{self.path_to_input}sources.csv"
         self.path_to_search_terms = f"{self.path_to_input}search_terms.csv"
         
@@ -32,7 +36,7 @@ class Input:
         self.NOW = now
         self.TODAY = today
 
-    def get_args_input_path(self) -> str:
+    def get_args_input_path(self, path = None) -> str:
 
         # Script arguments
         parser = argparse.ArgumentParser(add_help=False)

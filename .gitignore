@@ -1,0 +1,11 @@
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+node_modules/
+*.log
+fine-tuning-model/results/
+.vscode/
+*.DS_Store
+model/
