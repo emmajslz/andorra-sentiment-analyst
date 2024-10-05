@@ -1,6 +1,0 @@
-La CASS alerta de la suplantació del seu correu electrònic
-
-La seguretat social recorda que el remitent ha de ser el cau@cass.ad i el destinatari sempre ha de ser l'usuari
-
-La Caixa Andorrana de Seguretat Social (CASS) ha alertat als seus usuaris d'una suplantació del seu correu electrònic, on el correu de la seguretat social apareixia com a destinatari adjunt, i no com a remitent. 
-La CASS ha enviat un correu electrònic als seus usuaris alertant d'aquest intent d'estafa, i demanant que, si es rep un correu de l'adreça fraudulenta, no es cliqui a cap enllaç ni s'obri cap document o es comparteixi cap dada confidencial. La CASS ha recordat que el correu electrònic del remitent ha de ser el cau@cass.ad i el destinatari sempre ha de ser l'usuari.
