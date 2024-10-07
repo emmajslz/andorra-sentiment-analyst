@@ -1,6 +1,17 @@
 from datetime import date, datetime, timedelta, time
 from dateutil.relativedelta import relativedelta
 
+import streamlit as st
+import io
+import sys
+
+STREAMLIT = False
+
+def print_to_st():
+
+    global STREAMLIT
+    STREAMLIT = True
+
 def prints(what: str,
            term: str=None,
            journal: str=None,
@@ -16,6 +27,10 @@ def prints(what: str,
     '''
     Function to print status updates to the standard output.
     '''
+
+    if STREAMLIT:
+        buffer = io.StringIO()
+        sys.stdout = buffer
 
     names = {'altaveu': "L'Altaveu",
             'periodic': "Periòdic d'Andorra",
@@ -69,6 +84,13 @@ def prints(what: str,
 
         case 'loading_more_results':
             print(f"LOADING MORE RESULTS...")
+
+    if STREAMLIT:
+        
+        captured_output = buffer.getvalue()
+        st.text(captured_output)
+
+        sys.stdout = sys.__stdout__
 
 def string_to_datetime(string: str, date_format: str, formatted: bool, multiple_formats: bool) -> datetime:
     # We convert the string that we obtained from the web into a datetime object.

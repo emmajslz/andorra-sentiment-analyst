@@ -2,22 +2,18 @@ import streamlit as st
 
 import re
 import os
-import subprocess
 import csv
-from datetime import date, datetime
+from datetime import date, datetime, time
 from dateutil.relativedelta import relativedelta
 
 import main_crawler
+import analyze
 from crawler import utils
 
 class Scrape:
 
     def __init__(self) -> None:
-        pass
-
-    def parse_inputs(self, search_terms_string: str) -> list:
-        search_terms = re.split(r'[,\s]+', search_terms_string.strip())
-        return [[term] for term in search_terms]
+        utils.print_to_st()
     
     def setup_search(self, search_terms: list, options: list, search_name: str, results_path: str) -> bool:
         
@@ -44,111 +40,166 @@ class Scrape:
 
     def main_scraper(self, date_init: datetime, date_end: datetime, results_path: str):
             
-            today = date.today()
-            now = datetime.now()
+        today = date.today()
+        now = datetime.now()
 
-            input = main_crawler.Input(today, now, results_path)
+        input = main_crawler.Input(today, now, results_path, date_init, date_end)
 
-            chromedriver_loc = input.get_chromedriver_loc()
-            sources = input.get_sources()
-            sources_out_of_order = input.get_sources_out_of_order()
-            sources_elements = input.get_sources_elements()
-            search_name, search_terms = input.get_search_terms()
+        chromedriver_loc = input.get_chromedriver_loc()
+        sources = input.get_sources()
+        sources_out_of_order = input.get_sources_out_of_order()
+        sources_elements = input.get_sources_elements()
+        search_name, search_terms = input.get_search_terms()
+        path_to_input = input.path_to_input
+        (date_init, date_end) = (input.date_init, input.date_end)
 
-            output = main_crawler.Output(search_name, input.path_to_input)
+        output = main_crawler.Output(search_name, path_to_input, articles_path=True, comments_path=True)
 
-            crawler = main_crawler.Crawler(chromedriver_loc,
-                                            sources,
-                                            sources_out_of_order,
-                                            sources_elements,
-                                            search_terms,
-                                            date_init,
-                                            date_end,
-                                            today,
-                                            now,
-                                            output,
-                                            headless=True)
-            
-            articles, comments = crawler.crawl()
+        crawler = main_crawler.Crawler(chromedriver_loc,
+                                        sources,
+                                        sources_out_of_order,
+                                        sources_elements,
+                                        search_terms,
+                                        date_init,
+                                        date_end,
+                                        today,
+                                        now,
+                                        output,
+                                        headless=True)
+        
+        articles, comments = crawler.crawl()
 
-            if articles:
-                output.store_results(articles)
-            else:
-                utils.prints('no_results')
+        if articles:
+            output.store_results(articles)
 
             if comments:
                 output.store_comments(comments)
             else:
                 utils.prints('no_comments')
+                st.write(f"The articles had no comments.")
+        else:
+            utils.prints('no_results')
+            st.write(f"The search yielded no results.")
 
+class Search:
 
+    def __init__(self) -> None:
+        pass
+
+    def parse_inputs(self, search_terms_string: str) -> list:
+        search_terms = re.split(r'[,\n]+', search_terms_string.strip())
+        return [[term] for term in search_terms]
+
+    def get_search_terms(self):
+
+        # Search_terms
+        st.markdown("### Enter a list of search terms")
+        search_terms_string = st.text_area("Enter the list separated by commas or new lines:", height=150)
+        search_terms = self.parse_inputs(search_terms_string)
+
+        return search_terms
+    
+    def get_date_interval(self):
+
+        # Date interval
+        # Define default dates (e.g., last 7 days)
+        default_start = datetime.now() - relativedelta(days=7)
+        default_end = datetime.now()
+
+        # User selects a date interval
+        st.markdown("### Enter a date interval")
+        date_interval = st.date_input(
+            "Select a start and end date:",
+            value=(default_start, default_end),
+            min_value=datetime(2000, 1, 1),
+            max_value=datetime.now()
+        )
+
+        # Validate the date interval
+        if isinstance(date_interval, tuple) and len(date_interval) == 2:
+            date_init, date_end = date_interval
+            if date_init > date_end:
+                st.error("Error: Start date must be before end date.")
+        else:
+            st.warning("Please select a valid date range.")     
+
+        if isinstance(date_init, date):
+            date_init = datetime.combine(date_init, time(0, 0, 0))
+        if isinstance(date_end, date):
+            if date_end == date.today():
+                date_end = datetime.combine(date_end, datetime.now().time())
+            else:
+                date_end = datetime.combine(date_end, time(23, 59, 59))
+
+        return date_init, date_end
+
+    def select_journals(self):
+
+        st.markdown("### Select the journals to look in")
+        # Journals to scrape
+        altaveu = st.checkbox("Altaveu.com")
+        bondia = st.checkbox("Bondia.ad")
+        diari = st.checkbox("Diari d'Andorra")
+
+        # Collect the options into a dictionary for easy handling
+        options = [
+            ["altaveu", altaveu],
+            ["bondia", bondia],
+            ["diari", diari]
+        ]
+
+        return options
+
+    
 def main():
 
-    # subprocess.run(["python", "script.py"])
-
-    st.title("Andorra Sentiment Analyst")
-
-    scrape = Scrape()
-
-    # Button to trigger scraping
-
-    # Search_terms
-    st.write("Enter a keyword to scrape relevant information from the Andorran journals.")
-    search_terms_string = st.text_area("Enter a list of keywords (separated by commas or new lines):", height=150)
-    search_terms = scrape.parse_inputs(search_terms_string)
-
-    if not search_terms:
-        st.warning("Please enter at least one keyword.")
-
-    # Date interval
-    # Define default dates (e.g., last 7 days)
-    default_start = datetime.today() - relativedelta(days=7)
-    default_end = datetime.today()
-
-    # User selects a date interval
-    date_interval = st.date_input(
-        "Select a date range:",
-        value=(default_start, default_end),
-        min_value=datetime(2000, 1, 1),
-        max_value=datetime.today()
+    st.set_page_config(
+        page_title='Andorra Sentiment Analyzer',
+        page_icon=':bar_chart:',
+        layout='wide',
+        initial_sidebar_state='auto' # hides the sidebar on small devices and shows it otherwise
     )
 
-    # Validate the date interval
-    if isinstance(date_interval, tuple) and len(date_interval) == 2:
-        start_date, end_date = date_interval
-        if start_date > end_date:
-            st.error("Error: Start date must be before end date.")
-    else:
-        st.warning("Please select a valid date range.")
+    st.markdown("# Andorra Sentiment Analyzer")
 
-    st.header("Additional Options")
+    # ------------------------------------------------------------------------------------------------------
+    # Define Search and get Scraping parameters
+    # ------------------------------------------------------------------------------------------------------
 
-    # Journals to scrape
-    altaveu = st.checkbox("Altaveu.com")
-    bondia = st.checkbox("Bondia.ad")
-    diari = st.checkbox("Diari d'Andorra")
+    search = Search()
+    # Search_terms
+    search_terms = search.get_search_terms()
 
-    # Collect the options into a dictionary for easy handling
-    options = [
-        ["altaveu", altaveu],
-        ["bondia", bondia],
-        ["diari", diari]
-    ]
+    # Date interval
+    date_init, date_end = search.get_date_interval()
+
+    # Journal options
+    options = search.select_journals()
+
+    # ------------------------------------------------------------------------------------------------------
 
     if st.button("Cerca"):
 
-        search_name = "TRY"
+        search_name = f"SEARCH-{datetime.now().strftime("%Y%m%d%H%M%S")}"
         results_path = f"data/scrapes/{search_name}/"
 
         if not os.path.exists(results_path):
             os.makedirs(results_path, exist_ok=True)
 
+        scrape = Scrape()
         success = scrape.setup_search(search_terms, options, search_name, results_path)
 
         if success:
-            scrape.main_scraper(start_date, end_date, results_path)
+            scrape.main_scraper(date_init, date_end, results_path)
+
         else:
             st.warning("Please enter a keyword to proceed.")
+
+    if st.button("Predict!"):
+        results_path = f"data/scrapes/SEARCH-20241007020729/"
+        predict = analyze.Predict(results_path)
+        predictions = predict.predict_all_comments()
+
 
 if __name__ == "__main__":
     main()

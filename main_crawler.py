@@ -19,12 +19,20 @@ from crawler import utils, scraper
 
 class Input:
     
-    def __init__(self, today: date, now: datetime, path: str = None):
+    def __init__(self, today: date, now: datetime, path: str = None, date_init: datetime = None, date_end: datetime = None):
 
+        self.NOW = now
+        self.TODAY = today
+    
         if path:
             self.path_to_input = path
+            self.date_init = date_init
+            self.date_end = date_end
+
         else:
-            self.path_to_input = self.get_args_input_path()
+            self.path_to_input, self.date_init, self.date_end = self.get_args()
+
+        self.check_args(self.path_to_input, self.date_init, self.date_end)
             
         self.path_to_sources = f"{self.path_to_input}sources.csv"
         self.path_to_search_terms = f"{self.path_to_input}search_terms.csv"
@@ -33,61 +41,7 @@ class Input:
         self.path_to_sources_out_of_order = 'crawler/sources_out_of_order.txt'
         self.path_to_sources_elements= 'crawler/sources_elements.csv'
 
-        self.NOW = now
-        self.TODAY = today
-
-    def get_args_input_path(self, path = None) -> str:
-
-        # Script arguments
-        parser = argparse.ArgumentParser(add_help=False)
-
-        parser.add_argument("path", type=str, help="Path to the desired input directory.")
-
-        args, _ = parser.parse_known_args()
-
-        if not os.path.exists(args.path):
-            print(f"Invalid path to get inputs -> {args.path}")
-            sys.exit(2)
-        else:
-            print(f"Getting input files from {args.path}")
-
-        path = args.path
-        if path[-1] != '/':
-            path = path + '/'
-
-        return path
-
-    def get_chromedriver_loc(self) -> str:
-        return open(self.path_to_chromedriver_loc, 'r').readline().strip()
-
-    def get_sources(self) -> list:
-                
-        lines = open(self.path_to_sources, 'r').readlines()
-        sources = [line.split(',')[0].strip() for line in lines if "yes" in line.split(',')[1]]
-            
-        return sources
-    
-    def get_sources_out_of_order(self) -> list:
-        
-        lines = open(self.path_to_sources_out_of_order, 'r').readlines()
-        sources_out_of_order = [line.strip() for line in lines]
-            
-        return sources_out_of_order
-
-    def get_sources_elements(self) -> pd.DataFrame:
-        return pd.read_csv(self.path_to_sources_elements, delimiter=';').set_index('source')
-    
-    def get_search_terms(self):
-
-        lines = open(self.path_to_search_terms, 'r').readlines()
-        search_name = lines[0].strip()
-        search_terms = [line.strip() for line in lines[1:]]
-
-        return search_name, search_terms
-    
-    def get_args_date_interval(self) -> tuple:
-
-        # Gets the start and end date of the desired interval from the command line arguments
+    def get_args(self):
 
         # Default is 1 month back from today's date.
         date_end = self.NOW
@@ -112,6 +66,14 @@ class Input:
         if args.i is not None:
             date_init = datetime.strptime(args.i, '%Y%m%d')
 
+        path = args.path
+        if path[-1] != '/':
+            path = path + '/'
+
+        return path, date_init, date_end
+    
+    def check_args(self, path, date_init, date_end):
+
         if date_init > self.NOW or date_end > self.NOW:
             print(f"Dates cannot be in the future.")
             sys.exit(2)
@@ -119,18 +81,54 @@ class Input:
             print(f"Start date cannot be after end date.")
             sys.exit(2)
 
-        return (date_init, date_end)
+        if not os.path.exists(path):
+            print(f"Invalid path to get inputs -> {path}")
+            sys.exit(2)
+        else:
+            print(f"Getting input files from {path}")
+
+    def get_chromedriver_loc(self) -> str:
+        return open(self.path_to_chromedriver_loc, 'r').readline().strip()
+
+    def get_sources(self) -> list:
+                
+        lines = open(self.path_to_sources, 'r').readlines()
+        sources = [line.split(',')[0].strip() for line in lines if line.split(',')[1]]
+            
+        return sources
+    
+    def get_sources_out_of_order(self) -> list:
+        
+        lines = open(self.path_to_sources_out_of_order, 'r').readlines()
+        sources_out_of_order = [line.strip() for line in lines]
+            
+        return sources_out_of_order
+
+    def get_sources_elements(self) -> pd.DataFrame:
+        return pd.read_csv(self.path_to_sources_elements, delimiter=';').set_index('source')
+    
+    def get_search_terms(self):
+
+        lines = open(self.path_to_search_terms, 'r').readlines()
+        search_name = lines[0].strip()
+        search_terms = [line.strip() for line in lines[1:]]
+
+        return search_name, search_terms
+
 
 class Output:
 
-    def __init__(self, search_name, output_path):
+    def __init__(self, search_name, output_path, articles_path = False, comments_path = False):
 
         self.path = output_path
         self.search_name = search_name
 
         self.articles_path = self.define_articles_path()
 
-        self.filepath = f"{self.path}{self.define_filename()}"
+        if articles_path:
+            self.filepath = f"{self.path}articles"
+        else:
+            self.filepath = f"{self.path}{self.define_filename()}"
         self.headers = [
             "datetime_added",
             "journal",
@@ -143,7 +141,10 @@ class Output:
             "nb_of_comments"
         ]
 
-        self.comments_filepath = f"{self.path}{self.define_comments_filename()}"
+        if comments_path:
+            self.comments_filepath = f"{self.path}comments"
+        else:
+            self.comments_filepath = f"{self.path}{self.define_comments_filename()}"
         self.comments_headers = [
             "article_id",
             "comment_author",
@@ -320,9 +321,10 @@ def main():
     sources_out_of_order = input.get_sources_out_of_order()
     sources_elements = input.get_sources_elements()
     search_name, search_terms = input.get_search_terms()
-    (date_init, date_end) = input.get_args_date_interval()
+    path_to_input = input.path_to_input
+    (date_init, date_end) = (input.date_init, input.date_end)
 
-    output = Output(search_name, input.path_to_input)
+    output = Output(search_name, path_to_input)
 
     crawler = Crawler(chromedriver_loc,
                       sources,
