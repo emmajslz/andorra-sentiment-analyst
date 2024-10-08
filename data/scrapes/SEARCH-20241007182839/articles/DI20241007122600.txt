@@ -1,0 +1,6 @@
+Morabanc augmenta la seguretat de les targetes bancàries
+
+A partir d'ara els clients podran activar-les i desactivar-les de manera instantània
+
+Morabanc ha introduït una nova millora en matèria de seguretat per als seus clients, a través d'una actualització de la seva App. La entitat, a través d'un comunicat, informa que a partir d'ara els usuaris tindran l'opció d'activar i desactivar les seves targetes bancàries de manera instantània. Aquest servei "permet bloquejar la targeta temporalment en situacions de possible pèrdua, robatori o ús no autoritzat sense necessitat de donar-la de baixa permanentment", recull l'escrit.
+Aquesta es una de les novetats que ofereix l'actualització de l'App i la banca online de Morabanc, però n'hi ha més. També s'ofereix "la possibilitat d'actualitzar la documentació i gestionar la fiscal, evitant que la persona hagi de desplaçar-se fins al banc". Per a la versió d'Android també s'ha inclòs la possibilitat d'accedir-hi a través del reconeixement facial, fins ara només disponible per IOS. Segons el comunicat, aquesta millora "aplica les millor pràctiques en sistemes de seguretat perquè els clients tinguin la màxima protecció davant les amenaces actuals de frau".
