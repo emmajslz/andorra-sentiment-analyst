@@ -128,12 +128,12 @@ def prints(what: str,
         # captured_output = buffer.getvalue()
         # print_scraping_update(captured_output)
         # sys.stdout = sys.__stdout__
-
-        print_scraping_update(message)
+        if message:
+            print_scraping_update(message)
 
     else:
-
-        print(message)
+        if message:
+            print(message)
 
 def string_to_datetime(string: str, date_format: str, formatted: bool, multiple_formats: bool) -> datetime:
     # We convert the string that we obtained from the web into a datetime object.

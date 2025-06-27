@@ -79,6 +79,8 @@ class Scrape:
         else:
             utils.prints('no_results')
             return False, False
+        
+        return True, True
 
 
 class Search:
@@ -149,6 +151,7 @@ class Search:
         ]
 
         return options
+
 
 def main():
 

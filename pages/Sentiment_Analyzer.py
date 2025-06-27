@@ -402,12 +402,13 @@ class Predict:
         col1, col2= st.columns([2, 1])  # Create two columns for layout
         with col1:
             plt.figure(figsize=(7, 3.5))
-            plt.bar(list(label_valuecounts.index), label_valuecounts, color=['#F3EFB2', '#E1D3A6', '#D1C177', '#C6B24A'])
+            plt.bar(list(label_valuecounts.index), label_valuecounts, color=['#FFF600', '#FFDF00', '#FFA700', '#E3AB57'])
             plt.title("Frequency of each sentiment label.")
             st.pyplot(plt)
         with col2:
             st.write("\n\n")
             st.dataframe(label_valuecounts)
+
 
 def main():
 
