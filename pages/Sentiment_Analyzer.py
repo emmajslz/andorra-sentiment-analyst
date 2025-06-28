@@ -310,8 +310,8 @@ class Predict:
         
         self.results_path = results_path
 
-        self.model = BertForSequenceClassification.from_pretrained("./model")
-        self.tokenizer = BertTokenizer.from_pretrained("./model")
+        self.model = BertForSequenceClassification.from_pretrained("./modeling/sentiment-analysis/model")
+        self.tokenizer = BertTokenizer.from_pretrained("./modeling/sentiment-analysis/model")
 
         self.articles = articles
         self.comments = comments

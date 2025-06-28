@@ -5,7 +5,9 @@ __pycache__/
 *.pyd
 node_modules/
 *.log
-fine-tuning-model/results/
+modeling/sentiment-analysis/fine-tuning-model/results/
 .vscode/
 *.DS_Store
-model/
+modeling/sentiment-analysis/model/
+data
+modeling/sentiment-analysis/fine-tuning-model/data
